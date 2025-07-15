@@ -1,0 +1,9 @@
+[submodule "trick"]
+	path = trick
+	url = /home/jjermsta/SimulationFramework/trick
+[submodule "jeod"]
+	path = jeod
+	url = /home/jjermsta/SimulationFramework/jeod/
+[submodule "koviz"]
+	path = koviz
+	url = /home/jjermsta/SimulationFramework/koviz/
