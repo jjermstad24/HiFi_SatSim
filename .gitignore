@@ -1,0 +1,11 @@
+S_source.hh
+myenv/*
+.trick
+build
+DP_Product
+
+__init__.py
+S_source.hh
+S_sie.resource
+*.csv
+*.header

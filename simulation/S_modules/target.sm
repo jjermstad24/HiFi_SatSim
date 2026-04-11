@@ -1,0 +1,59 @@
+##include "environment/planet/include/planet.hh"
+##include "utils/planet_fixed/planet_fixed_posn/include/planet_fixed_posn.hh"
+
+class GroundTargetSimObject : public Trick::SimObject
+{
+public:
+    // Input (radians, meters)
+    double lat;
+    double lon;
+    double alt;
+
+    // Output
+    double pos_inertial[3];
+
+    jeod::PlanetFixedPosition pfix;
+
+    GroundTargetSimObject(jeod::Planet & earth_in)
+        : earth(earth_in)
+    {
+        P_ENV("initialization") initialize();
+        P_DYN("environment") update();
+    }
+
+    int initialize()
+    {
+        // Attach to Earth
+        pfix.initialize(&earth);
+
+        return 0;
+    }
+
+    int update()
+    {
+        // --- 1. Set spherical coordinates ---
+        pfix.sphere_coords.latitude  = lat;
+        pfix.sphere_coords.longitude = lon;
+        pfix.sphere_coords.altitude  = alt;
+
+        // Convert → Cartesian in planet-fixed frame
+        pfix.update_from_spher(pfix.sphere_coords);
+
+        // --- 2. Transform to inertial ---
+        const double (*T_parent_this)[3] =
+            earth.pfix.state.rot.T_parent_this;
+
+        // Likely inertial → pfix → transpose to go back
+        for (int i = 0; i < 3; i++) {
+            pos_inertial[i] = 0.0;
+            for (int j = 0; j < 3; j++) {
+                pos_inertial[i] += T_parent_this[j][i] * pfix.cart_coords[j];
+            }
+        }
+
+        return 0;
+    }
+
+private:
+    jeod::Planet & earth;
+};

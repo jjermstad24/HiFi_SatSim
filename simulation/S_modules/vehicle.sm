@@ -1,0 +1,185 @@
+/*************     TRICK HEADER     ******************************************
+VehicleBasicSimObject
+Purpose:( This sim object models a very basic vehicle.)
+*****************************************************************************/
+#ifndef SIM_OBJECT_VEHICLE_BASIC
+#define SIM_OBJECT_VEHICLE_BASIC
+
+##include "dynamics/dyn_body/include/dyn_body.hh"
+##include "environment/gravity/include/spherical_harmonics_gravity_controls.hh"
+##include "dynamics/body_action/include/dyn_body_init_trans_state.hh"
+##include "dynamics/body_action/include/dyn_body_init_rot_state.hh"
+##include "dynamics/body_action/include/mass_body_init.hh"
+
+##include "dynamics/derived_state/include/orb_elem_derived_state.hh"
+##include "dynamics/derived_state/include/planetary_derived_state.hh"
+##include "dynamics/derived_state/include/euler_derived_state.hh"
+##include "dynamics/derived_state/include/lvlh_derived_state.hh"
+
+##include "actuators/magnetorquer/include/magnetorquer.hh"
+##include "actuators/rcs/include/rcs_cluster.hh"
+##include "actuators/reaction_wheel/include/reaction_wheel.hh"
+
+##include "environment/gravity/include/gravity_manager.hh"
+
+class VehicleSimObject : public Trick::SimObject
+{
+protected:
+    jeod::DynManager & dyn_manager;
+
+public:
+    //----------------------------------------
+    // Core vehicle
+    //----------------------------------------
+    jeod::DynBody dyn_body;
+
+    //----------------------------------------
+    // Gravity
+    //----------------------------------------
+    jeod::SphericalHarmonicsGravityControls earth_grav_control;
+    jeod::SphericalHarmonicsGravityControls moon_grav_control;
+    jeod::SphericalHarmonicsGravityControls sun_grav_control;
+
+    //----------------------------------------
+    // Initialization
+    //----------------------------------------
+    jeod::DynBodyInitTransState trans_init;
+    jeod::DynBodyInitRotState rot_init;
+    jeod::MassBodyInit mass_init;
+
+    //----------------------------------------
+    // Derived states
+    //----------------------------------------
+    jeod::OrbElemDerivedState orb_elem;
+    jeod::PlanetaryDerivedState pfix;
+    jeod::EulerDerivedState euler_rpy;
+    jeod::LvlhDerivedState lvlh;
+
+    //----------------------------------------
+    // ACTUATORS
+    //----------------------------------------
+
+    // Magnetorquer
+    gnc::Magnetorquer magnetorquer;
+
+    // RCS
+    gnc::RCSCluster rcs_cluster;
+
+    // Reaction wheels (simple 3-wheel orthogonal set)
+    static const int NUM_WHEELS = 3;
+    gnc::ReactionWheel reaction_wheels[NUM_WHEELS];
+
+    //----------------------------------------
+    // Constructor
+    //----------------------------------------
+    VehicleSimObject(jeod::DynManager & dyn_mngr_in)
+        : dyn_manager(dyn_mngr_in)
+    {
+        //----------------------------------------
+        // Dyn body init
+        //----------------------------------------
+        P_ENV("initialization") dyn_body.initialize_model(dyn_manager);
+
+        //----------------------------------------
+        // Derived states init
+        //----------------------------------------
+        P_DYN("initialization") orb_elem.initialize(dyn_body, dyn_manager);
+        P_DYN("initialization") pfix.initialize(dyn_body, dyn_manager);
+        P_DYN("initialization") euler_rpy.initialize(dyn_body, dyn_manager);
+        P_DYN("initialization") lvlh.initialize(dyn_body, dyn_manager);
+
+        //----------------------------------------
+        // Magnetorquer setup
+        //----------------------------------------
+        magnetorquer.initialize();
+
+        //----------------------------------------
+        // RCS cluster setup
+        //----------------------------------------
+        rcs_cluster.num_thrusters = 4;
+
+        // Example geometry (you will want to tune this)
+        rcs_cluster.thrusters[0].position[0] =  1.0;
+        rcs_cluster.thrusters[0].direction[1] =  1.0;
+
+        rcs_cluster.thrusters[1].position[0] = -1.0;
+        rcs_cluster.thrusters[1].direction[1] = -1.0;
+
+        rcs_cluster.thrusters[2].position[1] =  1.0;
+        rcs_cluster.thrusters[2].direction[2] =  1.0;
+
+        rcs_cluster.thrusters[3].position[1] = -1.0;
+        rcs_cluster.thrusters[3].direction[2] = -1.0;
+
+        for (int i = 0; i < rcs_cluster.num_thrusters; i++) {
+            rcs_cluster.thrusters[i].thrust_vac = 0.5;
+            rcs_cluster.thrusters[i].Isp = 220.0;
+            rcs_cluster.thrusters[i].chamber_pressure_nom = 2e5;
+            rcs_cluster.thrusters[i].valve_tau = 0.02;
+            rcs_cluster.thrusters[i].pressure_tau = 0.05;
+            rcs_cluster.thrusters[i].min_on_time = 0.01;
+
+            rcs_cluster.thrusters[i].initialize();
+        }
+
+        //----------------------------------------
+        // Reaction wheel setup (orthogonal)
+        //----------------------------------------
+        // X wheel
+        reaction_wheels[0].axis[0] = 1.0;
+        reaction_wheels[0].axis[1] = 0.0;
+        reaction_wheels[0].axis[2] = 0.0;
+
+        // Y wheel
+        reaction_wheels[1].axis[0] = 0.0;
+        reaction_wheels[1].axis[1] = 1.0;
+        reaction_wheels[1].axis[2] = 0.0;
+
+        // Z wheel
+        reaction_wheels[2].axis[0] = 0.0;
+        reaction_wheels[2].axis[1] = 0.0;
+        reaction_wheels[2].axis[2] = 1.0;
+
+        for (int i = 0; i < NUM_WHEELS; i++) {
+            reaction_wheels[i].J = 0.001;
+            reaction_wheels[i].max_torque = 0.02;
+            reaction_wheels[i].max_speed = 6000.0 * 2.0 * 3.14159 / 60.0;
+
+            reaction_wheels[i].viscous_friction = 1e-5;
+            reaction_wheels[i].coulomb_friction = 1e-4;
+            reaction_wheels[i].torque_rate_limit = 0.1;
+
+            reaction_wheels[i].initialize();
+        }
+    }
+
+    //----------------------------------------
+    // Runtime update (call in Trick job)
+    //----------------------------------------
+    void update(double dt)
+    {
+        //----------------------------------------
+        // Update derived states
+        //----------------------------------------
+        orb_elem.update();
+        pfix.update();
+        lvlh.update();
+        euler_rpy.update();
+
+        //----------------------------------------
+        // Magnetorquer
+        //----------------------------------------
+        magnetorquer.update(dt);
+
+        //----------------------------------------
+        // RCS
+        //----------------------------------------
+        rcs_cluster.update(dt);
+    }
+
+private:
+    VehicleSimObject(const VehicleSimObject &);
+    VehicleSimObject & operator=(const VehicleSimObject &);
+};
+
+#endif
