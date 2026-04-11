@@ -9,3 +9,10 @@ S_source.hh
 S_sie.resource
 *.csv
 *.header
+send_hs
+S_job_execution
+S_run_summary
+varserver_log
+trick.zip
+makefile
+S_main*
