@@ -39,7 +39,11 @@
 //
 //=============================================================================
 
-#define DYNAMICS      1.0
+/* Integration step 0.005 s = 200 Hz. FSW period 0.025 s = 40 Hz (FSW_STRIDE = 5). */
+#define DYNAMICS      0.005
+#define FSW_DT        0.025
+#define FSW_STRIDE    5
+
 #define LOW_RATE_ENV  10.0
 
 // Include the default system classes:

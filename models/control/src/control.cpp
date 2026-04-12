@@ -1,6 +1,8 @@
 
 #include "../include/control.hh"
 
+#include <cmath>
+
 namespace gnc {
 
 void Control::update(double /*dt*/)
@@ -10,33 +12,35 @@ void Control::update(double /*dt*/)
     // q_error = q_current * q_desired^(-1)
     current_state.q.multiply_conjugate(desired_state.q, q_error);
 
-    // Extract quaternion vector part (JEOD convention: vector = [x,y,z])
-    double e[3];
-    e[0] = q_error.vector[0];
-    e[1] = q_error.vector[1];
-    e[2] = q_error.vector[2];
+    err.q_vector[0] = q_error.vector[0];
+    err.q_vector[1] = q_error.vector[1];
+    err.q_vector[2] = q_error.vector[2];
+    err.q_scalar = q_error.scalar;
 
-    // Angular velocity error: we = w_desired - w_current
-    double we[3];
-    jeod::Vector3::decr(desired_state.w, current_state.w, we);
+    const double vnorm = std::sqrt(err.q_vector[0] * err.q_vector[0] +
+                                   err.q_vector[1] * err.q_vector[1] +
+                                   err.q_vector[2] * err.q_vector[2]);
+    err.attitude_principal_angle_rad =
+        2.0 * std::atan2(vnorm, std::fabs(q_error.scalar));
 
-    // Torque = -Kp * e - Kd * we
-    out.torque[0] = (-10.0 * e[0]) + (2.0 * we[0]);
-    out.torque[1] = (-10.0 * e[1]) + (2.0 * we[1]);
-    out.torque[2] = (-10.0 * e[2]) + (2.0 * we[2]);
+    jeod::Vector3::decr(desired_state.w, current_state.w, err.omega_err);
 
-    // Position error: pe = r_desired - r_current
-    double pe[3];
-    jeod::Vector3::decr(desired_state.r, current_state.r, pe);
+    // τ = -Kp q_vec - Kd ω_body : P on quaternion error, D on measured rate (damping).
+    // (If D used only (ω_des−ω) with ω_des matched to ω for reference consistency, D vanishes and the
+    //  loop oscillates; damping on ω_body restores stability.)
+    static const double Kp = 10.0;
+    static const double Kd = 2.0;
+    out.torque[0] = (-Kp * err.q_vector[0]) - (Kd * current_state.w[0]);
+    out.torque[1] = (-Kp * err.q_vector[1]) - (Kd * current_state.w[1]);
+    out.torque[2] = (-Kp * err.q_vector[2]) - (Kd * current_state.w[2]);
 
-    // Velocity error: ve = v_desired - v_current
-    double ve[3];
-    jeod::Vector3::decr(desired_state.v, current_state.v, ve);
+    jeod::Vector3::decr(desired_state.r, current_state.r, err.r_err);
+    jeod::Vector3::decr(desired_state.v, current_state.v, err.v_err);
 
-    // Force = Kp * pe + Kd * ve
-    out.force[0] = (1e-3 * pe[0]) + (1e-2 * ve[0]);
-    out.force[1] = (1e-3 * pe[1]) + (1e-2 * ve[1]);
-    out.force[2] = (1e-3 * pe[2]) + (1e-2 * ve[2]);
+    // Force = Kp * r_err + Kd * v_err
+    out.force[0] = (1e-3 * err.r_err[0]) + (1e-2 * err.v_err[0]);
+    out.force[1] = (1e-3 * err.r_err[1]) + (1e-2 * err.v_err[1]);
+    out.force[2] = (1e-3 * err.r_err[2]) + (1e-2 * err.v_err[2]);
 }
 
 }

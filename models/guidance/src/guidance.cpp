@@ -1,13 +1,33 @@
 
 #include "../include/guidance.hh"
 #include <cmath>
+#include <cstring>
 
 namespace gnc {
 
-Guidance::Guidance() {
+Guidance::Guidance()
+{
     mode = IDLE;
     slew_time = 0.0;
     slew_duration = 10.0;
+
+    std::memset(maneuver_force_eci, 0, sizeof(maneuver_force_eci));
+    stationkeep_emit_rcs_pd = false;
+    std::memset(hold_r_eci, 0, sizeof(hold_r_eci));
+    std::memset(hold_v_eci, 0, sizeof(hold_v_eci));
+    stationkeep_kp = 1e-3;
+    stationkeep_kd = 1e-2;
+
+    std::memset(out.r_desired, 0, sizeof(out.r_desired));
+    std::memset(out.v_desired, 0, sizeof(out.v_desired));
+    out.q_desired.make_identity();
+    std::memset(out.w_desired, 0, sizeof(out.w_desired));
+    std::memset(out.rcs_force_cmd_eci, 0, sizeof(out.rcs_force_cmd_eci));
+    std::memset(out.rcs_torque_cmd_body, 0, sizeof(out.rcs_torque_cmd_body));
+    std::memset(out.rw_torque_cmd_body, 0, sizeof(out.rw_torque_cmd_body));
+    std::memset(out.mtq_dipole_cmd_body, 0, sizeof(out.mtq_dipole_cmd_body));
+
+    std::memset(sc_omega_body, 0, sizeof(sc_omega_body));
 }
 
 void Guidance::to_eci(const double in[3], double out[3], GuidanceFrame f) {
@@ -71,33 +91,85 @@ jeod::Quaternion Guidance::slerp(const jeod::Quaternion& q1,const jeod::Quaterni
     return r;
 }
 
-void Guidance::idle(){
+void Guidance::idle()
+{
     out.q_desired.make_identity();
-}
-
-void Guidance::target(){
-    double tgt[3];
-    to_eci(target_pos,tgt,target_frame);
-    out.q_desired = compute_pointing(sc_pos_eci,tgt);
-}
-
-void Guidance::slew(double dt){
-    slew_time += dt;
-    double t = slew_time/slew_duration;
-    if(t>1) t=1;
-    out.q_desired = slerp(q_start,q_target,t);
-}
-
-void Guidance::stationkeep(){
     jeod::Vector3::copy(sc_pos_eci, out.r_desired);
     jeod::Vector3::copy(sc_vel_eci, out.v_desired);
+    jeod::Vector3::copy(sc_omega_body, out.w_desired);
 }
 
-void Guidance::update(double dt){
-    if(mode==IDLE) idle();
-    else if(mode==TARGET) target();
-    else if(mode==SLEW) slew(dt);
-    else if(mode==STATIONKEEP) stationkeep();
+void Guidance::target()
+{
+    double tgt[3];
+    to_eci(target_pos, tgt, target_frame);
+    out.q_desired = compute_pointing(sc_pos_eci, tgt);
+    // Attitude-only: match orbit state so translational/rate error is not spurious.
+    jeod::Vector3::copy(sc_pos_eci, out.r_desired);
+    jeod::Vector3::copy(sc_vel_eci, out.v_desired);
+    jeod::Vector3::copy(sc_omega_body, out.w_desired);
+}
+
+void Guidance::slew(double dt)
+{
+    slew_time += dt;
+    double t = slew_time / slew_duration;
+    if (t > 1) {
+        t = 1;
+    }
+    out.q_desired = slerp(q_start, q_target, t);
+    jeod::Vector3::copy(sc_pos_eci, out.r_desired);
+    jeod::Vector3::copy(sc_vel_eci, out.v_desired);
+    jeod::Vector3::copy(sc_omega_body, out.w_desired);
+}
+
+void Guidance::stationkeep()
+{
+    if (stationkeep_emit_rcs_pd) {
+        jeod::Vector3::copy(hold_r_eci, out.r_desired);
+        jeod::Vector3::copy(hold_v_eci, out.v_desired);
+
+        double pe[3];
+        double ve[3];
+        jeod::Vector3::decr(out.r_desired, sc_pos_eci, pe);
+        jeod::Vector3::decr(out.v_desired, sc_vel_eci, ve);
+
+        out.rcs_force_cmd_eci[0] = stationkeep_kp * pe[0] + stationkeep_kd * ve[0];
+        out.rcs_force_cmd_eci[1] = stationkeep_kp * pe[1] + stationkeep_kd * ve[1];
+        out.rcs_force_cmd_eci[2] = stationkeep_kp * pe[2] + stationkeep_kd * ve[2];
+    } else {
+        jeod::Vector3::copy(sc_pos_eci, out.r_desired);
+        jeod::Vector3::copy(sc_vel_eci, out.v_desired);
+    }
+    jeod::Vector3::copy(sc_omega_body, out.w_desired);
+}
+
+void Guidance::rcs_maneuver()
+{
+    jeod::Vector3::copy(maneuver_force_eci, out.rcs_force_cmd_eci);
+    jeod::Vector3::copy(sc_pos_eci, out.r_desired);
+    jeod::Vector3::copy(sc_vel_eci, out.v_desired);
+    jeod::Vector3::copy(sc_omega_body, out.w_desired);
+}
+
+void Guidance::update(double dt)
+{
+    std::memset(out.rcs_force_cmd_eci, 0, sizeof(out.rcs_force_cmd_eci));
+    std::memset(out.rcs_torque_cmd_body, 0, sizeof(out.rcs_torque_cmd_body));
+    std::memset(out.rw_torque_cmd_body, 0, sizeof(out.rw_torque_cmd_body));
+    std::memset(out.mtq_dipole_cmd_body, 0, sizeof(out.mtq_dipole_cmd_body));
+
+    if (mode == IDLE) {
+        idle();
+    } else if (mode == TARGET) {
+        target();
+    } else if (mode == SLEW) {
+        slew(dt);
+    } else if (mode == STATIONKEEP) {
+        stationkeep();
+    } else if (mode == RCS_MANEUVER) {
+        rcs_maneuver();
+    }
 }
 
 }

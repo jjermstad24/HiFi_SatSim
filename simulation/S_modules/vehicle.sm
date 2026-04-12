@@ -23,8 +23,9 @@ Purpose:( This sim object models a very basic vehicle.)
 ##include "environment/gravity/include/gravity_manager.hh"
 
 ##include "guidance/include/guidance.hh"
+##include "control/include/gnc_mode.hh"
 ##include "control/include/control.hh"
-// ##include "control/include/allocator.hh"
+##include "control/include/allocator.hh"
 
 class VehicleSimObject : public Trick::SimObject
 {
@@ -72,7 +73,7 @@ public:
     //----------------------------------------
     gnc::Guidance guidance;
     gnc::Control control;
-    // gnc::Allocator allocator;
+    gnc::Allocator allocator;
 
     //----------------------------------------
     // Constructor
@@ -97,6 +98,12 @@ public:
         //----------------------------------------
         // Magnetorquer
         //----------------------------------------
+        magnetorquer.R = 2.0;
+        magnetorquer.L = 0.02;
+        magnetorquer.max_current = 0.5;
+        magnetorquer.max_dipole = 0.05;
+        magnetorquer.N = 150.0;
+        magnetorquer.area = 1.0e-4;
         magnetorquer.initialize();
 
         //----------------------------------------
@@ -219,13 +226,25 @@ public:
             rw_cluster.wheels[i].initialize();
         }
 
+        // GNC routing: all actuators on; commands from control (see apply_control_mode from input).
+        allocator.apply_control_mode(
+            gnc::GNC_EFFECTOR_ALL,
+            gnc::GNC_CMD_FROM_CONTROL,
+            gnc::GNC_CMD_FROM_CONTROL,
+            gnc::GNC_CMD_FROM_CONTROL);
+
+        fsw_substep = 0;
+
         P_DYN("environment") update();
     }
 
     //----------------------------------------
-    // Runtime update (Trick job)
+    // Runtime update (Trick job): 200 Hz; FSW block at 40 Hz (FSW_STRIDE).
     //----------------------------------------
 private:
+    /** Sub-step within [0 .. FSW_STRIDE-1]; FSW runs when zero (40 Hz vs 200 Hz dynamics). */
+    unsigned fsw_substep;
+
     void update()
 {
     //----------------------------------------
@@ -260,9 +279,11 @@ private:
     q_body_eci[2] = dyn_body.composite_body.state.rot.Q_parent_this.vector[2];
     q_body_eci[3] = dyn_body.composite_body.state.rot.Q_parent_this.scalar;
 
+    if (fsw_substep == 0) {
+
     //----------------------------------------
     // ================================
-    // GUIDANCE
+    // GUIDANCE  (refs + optional actuator cmds in guidance.out.*)
     // ================================
     //----------------------------------------
 
@@ -270,6 +291,7 @@ private:
     for (int i = 0; i < 3; i++) {
         guidance.sc_pos_eci[i] = r_eci[i];
         guidance.sc_vel_eci[i] = v_eci[i];
+        guidance.sc_omega_body[i] = w_body[i];
     }
 
     // Example: target = Earth center (nadir pointing)
@@ -277,13 +299,16 @@ private:
         guidance.target_pos[i] = 0.0;
     }
 
+    // GuidanceMode: IDLE, TARGET, SLEW, STATIONKEEP, RCS_MANEUVER
+    // For RCS from guidance: set mode RCS_MANEUVER + maneuver_force_eci[], or STATIONKEEP +
+    // stationkeep_emit_rcs_pd + hold_r_eci/hold_v_eci, and allocator.rcs_cmd_source = FROM_GUIDANCE.
     guidance.mode = gnc::TARGET;
 
-    guidance.update(DYNAMICS);
+    guidance.update(FSW_DT);
 
     //----------------------------------------
     // ================================
-    // CONTROL
+    // CONTROL  (feeds allocator when *_cmd_source = FROM_CONTROL)
     // ================================
     //----------------------------------------
 
@@ -307,26 +332,25 @@ private:
         control.desired_state.v[i] = guidance.out.v_desired[i];
     }
 
-    control.update(DYNAMICS);
+    control.update(FSW_DT);
 
     //----------------------------------------
     // ================================
-    // ALLOCATION
+    // ALLOCATION (routing: effector_enable_mask + *_cmd_source vs guidance.out)
     // ================================
     //----------------------------------------
 
-    // for (int i = 0; i < 3; i++) {
-    //     allocator.torque[i] = control.out.torque[i];
-    //     allocator.force[i]  = control.out.force[i];
-    // }
+    for (int i = 0; i < 3; i++) {
+        allocator.torque_cmd_body[i] = control.out.torque[i];
+        allocator.force_cmd_eci[i] = control.out.force[i];
+        // TODO: populate from a geomagnetic / IGRF model in body frame
+        allocator.B_body[i] = 0.0;
+    }
 
-    // // Magnetic field (you need to wire this from your env model)
-    // double B_body[3] = {0.0, 0.0, 0.0}; // TODO: replace with real field
-    // for (int i = 0; i < 3; i++) {
-    //     allocator.B[i] = B_body[i];
-    // }
-
-    // allocator.update();
+    allocator.update(
+        dyn_body.composite_body.state.rot.Q_parent_this,
+        rcs_cluster,
+        guidance.out);
 
     //----------------------------------------
     // ================================
@@ -334,43 +358,24 @@ private:
     // ================================
     //----------------------------------------
 
-    // //----------------------------------------
-    // // Reaction Wheels
-    // //----------------------------------------
-    // for (int i = 0; i < rw_cluster.num_wheels; i++) {
-    //     rw_cluster.wheels[i].commanded_torque =
-    //         allocator.wheel_cmd[i];
-    // }
-
-    //----------------------------------------
-    // Magnetorquer
-    //----------------------------------------
-    // for (int i = 0; i < 3; i++) {
-    //     magnetorquer.cmd_dipole_body[i] = allocator.mtq_cmd[i];
-    // }
-
     for (int i = 0; i < 3; i++) {
-        rcs_cluster.desired_force[i] = control.out.force[i];
-        rcs_cluster.desired_torque[i] = control.out.torque[i];
+        rw_cluster.torque_cmd[i] = allocator.rw_torque_cmd[i];
+        magnetorquer.cmd_dipole_body[i] = allocator.mtq_dipole_cmd[i];
+        magnetorquer.B_body[i] = allocator.B_body[i];
     }
-    
-    // //----------------------------------------
-    // // RCS Thrusters (simple mapping)
-    // //----------------------------------------
-    // for (int i = 0; i < 12; i++) {
-    //     rcs_cluster.thrusters[i].desired_force =
-    //         allocator.thruster_cmd[i % 3];
-    // }
+
+    }
+
+    fsw_substep = (fsw_substep + 1) % FSW_STRIDE;
 
     //----------------------------------------
-    // ACTUATOR UPDATE
+    // ACTUATOR UPDATE (physics, 200 Hz; holds FSW commands between updates)
     //----------------------------------------
-    // magnetorquer.update(DYNAMICS);
+    magnetorquer.update(DYNAMICS);
+    rw_cluster.update(DYNAMICS);
     rcs_cluster.update(DYNAMICS);
-    // rw_cluster.update(DYNAMICS);
     }
 
-private:
     VehicleSimObject(const VehicleSimObject &);
     VehicleSimObject & operator=(const VehicleSimObject &);
 };
