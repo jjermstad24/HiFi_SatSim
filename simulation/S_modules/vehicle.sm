@@ -21,6 +21,7 @@ Purpose:( This sim object models a very basic vehicle.)
 ##include "actuators/reaction_wheel/include/rw_cluster.hh"
 
 ##include "environment/gravity/include/gravity_manager.hh"
+##include "environment/earth_magnetic_field/include/earth_magnetic_field.hh"
 
 ##include "guidance/include/guidance.hh"
 ##include "control/include/gnc_mode.hh"
@@ -44,6 +45,11 @@ public:
     jeod::SphericalHarmonicsGravityControls earth_grav_control;
     jeod::SphericalHarmonicsGravityControls moon_grav_control;
     jeod::SphericalHarmonicsGravityControls sun_grav_control;
+
+    //----------------------------------------
+    // Environment
+    //----------------------------------------
+    gnc::EarthMagneticField mag_field;
 
     //----------------------------------------
     // Initialization
@@ -107,74 +113,47 @@ public:
         magnetorquer.initialize();
 
         //----------------------------------------
-        // RCS CLUSTER (12 thrusters, box layout)
+        // RCS CLUSTER (12 thrusters, 6-DOF layout)
         //----------------------------------------
 
-        // =========================
-        // +X FACE (2 thrusters)
-        // =========================
-        rcs_cluster.thrusters[0].position[0] =  1.0;
-        rcs_cluster.thrusters[0].position[1] =  0.5;
-        rcs_cluster.thrusters[0].direction[0] = -1.0;
+        // X-pointing thrusters (Force in +/- X, Torque in +/- Z)
+        rcs_cluster.thrusters[0].position[0] =  1.0; rcs_cluster.thrusters[0].position[1] =  1.0; rcs_cluster.thrusters[0].position[2] =  0.0;
+        rcs_cluster.thrusters[0].direction[0] = -1.0; // Force -X, Torque +Z
 
-        rcs_cluster.thrusters[1].position[0] =  1.0;
-        rcs_cluster.thrusters[1].position[1] = -0.5;
-        rcs_cluster.thrusters[1].direction[0] = -1.0;
+        rcs_cluster.thrusters[1].position[0] =  1.0; rcs_cluster.thrusters[1].position[1] = -1.0; rcs_cluster.thrusters[1].position[2] =  0.0;
+        rcs_cluster.thrusters[1].direction[0] = -1.0; // Force -X, Torque -Z
 
-        // =========================
-        // -X FACE (2 thrusters)
-        // =========================
-        rcs_cluster.thrusters[2].position[0] = -1.0;
-        rcs_cluster.thrusters[2].position[1] =  0.5;
-        rcs_cluster.thrusters[2].direction[0] =  1.0;
+        rcs_cluster.thrusters[2].position[0] = -1.0; rcs_cluster.thrusters[2].position[1] =  1.0; rcs_cluster.thrusters[2].position[2] =  0.0;
+        rcs_cluster.thrusters[2].direction[0] =  1.0; // Force +X, Torque -Z
 
-        rcs_cluster.thrusters[3].position[0] = -1.0;
-        rcs_cluster.thrusters[3].position[1] = -0.5;
-        rcs_cluster.thrusters[3].direction[0] =  1.0;
+        rcs_cluster.thrusters[3].position[0] = -1.0; rcs_cluster.thrusters[3].position[1] = -1.0; rcs_cluster.thrusters[3].position[2] =  0.0;
+        rcs_cluster.thrusters[3].direction[0] =  1.0; // Force +X, Torque +Z
 
-        // =========================
-        // +Y FACE (2 thrusters)
-        // =========================
-        rcs_cluster.thrusters[4].position[1] =  1.0;
-        rcs_cluster.thrusters[4].position[0] =  0.5;
-        rcs_cluster.thrusters[4].direction[1] = -1.0;
+        // Y-pointing thrusters (Force in +/- Y, Torque in +/- X)
+        rcs_cluster.thrusters[4].position[0] =  0.0; rcs_cluster.thrusters[4].position[1] =  1.0; rcs_cluster.thrusters[4].position[2] =  1.0;
+        rcs_cluster.thrusters[4].direction[1] = -1.0; // Force -Y, Torque +X
 
-        rcs_cluster.thrusters[5].position[1] =  1.0;
-        rcs_cluster.thrusters[5].position[0] = -0.5;
-        rcs_cluster.thrusters[5].direction[1] = -1.0;
+        rcs_cluster.thrusters[5].position[0] =  0.0; rcs_cluster.thrusters[5].position[1] =  1.0; rcs_cluster.thrusters[5].position[2] = -1.0;
+        rcs_cluster.thrusters[5].direction[1] = -1.0; // Force -Y, Torque -X
 
-        // =========================
-        // -Y FACE (2 thrusters)
-        // =========================
-        rcs_cluster.thrusters[6].position[1] = -1.0;
-        rcs_cluster.thrusters[6].position[0] =  0.5;
-        rcs_cluster.thrusters[6].direction[1] =  1.0;
+        rcs_cluster.thrusters[6].position[0] =  0.0; rcs_cluster.thrusters[6].position[1] = -1.0; rcs_cluster.thrusters[6].position[2] =  1.0;
+        rcs_cluster.thrusters[6].direction[1] =  1.0; // Force +Y, Torque -X
 
-        rcs_cluster.thrusters[7].position[1] = -1.0;
-        rcs_cluster.thrusters[7].position[0] = -0.5;
-        rcs_cluster.thrusters[7].direction[1] =  1.0;
+        rcs_cluster.thrusters[7].position[0] =  0.0; rcs_cluster.thrusters[7].position[1] = -1.0; rcs_cluster.thrusters[7].position[2] = -1.0;
+        rcs_cluster.thrusters[7].direction[1] =  1.0; // Force +Y, Torque +X
 
-        // =========================
-        // +Z FACE (2 thrusters)
-        // =========================
-        rcs_cluster.thrusters[8].position[2] =  1.0;
-        rcs_cluster.thrusters[8].position[0] =  0.5;
-        rcs_cluster.thrusters[8].direction[2] = -1.0;
+        // Z-pointing thrusters (Force in +/- Z, Torque in +/- Y)
+        rcs_cluster.thrusters[8].position[0] =  1.0; rcs_cluster.thrusters[8].position[1] =  0.0; rcs_cluster.thrusters[8].position[2] =  1.0;
+        rcs_cluster.thrusters[8].direction[2] = -1.0; // Force -Z, Torque +Y
 
-        rcs_cluster.thrusters[9].position[2] =  1.0;
-        rcs_cluster.thrusters[9].position[0] = -0.5;
-        rcs_cluster.thrusters[9].direction[2] = -1.0;
+        rcs_cluster.thrusters[9].position[0] = -1.0; rcs_cluster.thrusters[9].position[1] =  0.0; rcs_cluster.thrusters[9].position[2] =  1.0;
+        rcs_cluster.thrusters[9].direction[2] = -1.0; // Force -Z, Torque -Y
 
-        // =========================
-        // -Z FACE (2 thrusters)
-        // =========================
-        rcs_cluster.thrusters[10].position[2] = -1.0;
-        rcs_cluster.thrusters[10].position[0] =  0.5;
-        rcs_cluster.thrusters[10].direction[2] =  1.0;
+        rcs_cluster.thrusters[10].position[0] =  1.0; rcs_cluster.thrusters[10].position[1] =  0.0; rcs_cluster.thrusters[10].position[2] = -1.0;
+        rcs_cluster.thrusters[10].direction[2] =  1.0; // Force +Z, Torque -Y
 
-        rcs_cluster.thrusters[11].position[2] = -1.0;
-        rcs_cluster.thrusters[11].position[0] = -0.5;
-        rcs_cluster.thrusters[11].direction[2] =  1.0;
+        rcs_cluster.thrusters[11].position[0] = -1.0; rcs_cluster.thrusters[11].position[1] =  0.0; rcs_cluster.thrusters[11].position[2] = -1.0;
+        rcs_cluster.thrusters[11].direction[2] =  1.0; // Force +Z, Torque +Y
 
         //----------------------------------------
         // COMMON THRUSTER PARAMETERS
@@ -235,7 +214,7 @@ public:
 
         fsw_substep = 0;
 
-        P_DYN("environment") update();
+        P_DYN(DYNAMICS, "environment") update();
     }
 
     //----------------------------------------
@@ -279,6 +258,14 @@ private:
     q_body_eci[2] = dyn_body.composite_body.state.rot.Q_parent_this.vector[2];
     q_body_eci[3] = dyn_body.composite_body.state.rot.Q_parent_this.scalar;
 
+    // Local Magnetic Field
+    double B_eci[3];
+    mag_field.compute(r_eci, exec_get_sim_time(), B_eci);
+    double B_body[3];
+    jeod::Quaternion q_eci_to_body;
+    dyn_body.composite_body.state.rot.Q_parent_this.conjugate(q_eci_to_body);
+    q_eci_to_body.left_quat_transform(B_eci, B_body);
+
     if (fsw_substep == 0) {
 
     //----------------------------------------
@@ -313,10 +300,8 @@ private:
     //----------------------------------------
 
     // Attitude
-    for (int i = 0; i < 4; i++) {
-        control.current_state.q[i]  = q_body_eci[i];
-        control.desired_state.q[i] = guidance.out.q_desired[i];
-    }
+    control.current_state.q = dyn_body.composite_body.state.rot.Q_parent_this;
+    control.desired_state.q = guidance.out.q_desired;
 
     // Rates
     for (int i = 0; i < 3; i++) {
@@ -342,9 +327,8 @@ private:
 
     for (int i = 0; i < 3; i++) {
         allocator.torque_cmd_body[i] = control.out.torque[i];
-        allocator.force_cmd_eci[i] = control.out.force[i];
-        // TODO: populate from a geomagnetic / IGRF model in body frame
-        allocator.B_body[i] = 0.0;
+        allocator.force_cmd_eci[i] = 0.0; // Force disabled to prevent saturation
+        allocator.B_body[i] = B_body[i];
     }
 
     allocator.update(

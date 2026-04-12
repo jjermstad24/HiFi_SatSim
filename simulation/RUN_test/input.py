@@ -28,7 +28,14 @@ target.alt = 0
 vehicle.guidance.mode = 1
 vehicle.guidance.target_frame = 0
 
-trick.sim_services.exec_set_terminate_time(1000.0)
+# --- Attitude Control Gains ---
+vehicle.control.Kp = 20.0
+vehicle.control.Kd = 2.0
+
+vehicle.allocator.rcs_torque_fraction = 0.0
+vehicle.allocator.mtq_torque_fraction = 0.0
+vehicle.allocator.rw_torque_fraction = 1.0
+trick.sim_services.exec_set_terminate_time(100.0)
 
 exec(open("Log_data/log_run_test.py").read())
 setup_run_test_logging(0.025)

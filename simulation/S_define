@@ -77,6 +77,6 @@ vcollect vehicle.dyn_body.collect.collect_effector_forc jeod::CollectForce::crea
 };
 vcollect vehicle.dyn_body.collect.collect_effector_torq jeod::CollectTorque::create {
     vehicle.magnetorquer.torque_body,
-    vehicle.rcs_cluster.total_force,
+    vehicle.rcs_cluster.total_torque,
     vehicle.rw_cluster.torque_body
 };

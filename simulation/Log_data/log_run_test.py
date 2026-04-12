@@ -41,15 +41,33 @@ def setup_run_test_logging(log_cycle=1):
     dr_group.thisown = 0
     dr_group.set_cycle(log_cycle)
     dr_group.freq = trick.sim_services.DR_Always
-    for i in range(12):
-        for j in range(3):
-            dr_group.add_variable(
-                "vehicle.rcs_cluster.thrusters[%d].force_body[%d]" % (i, j),
-                "thruster%d.force[%d]" % (i, j),
-            )
+    for i in range(3):
+        dr_group.add_variable(
+            "vehicle.rcs_cluster.total_force[%d]" % i, "rcs_total_force_%d" % i
+        )
     for i in range(3):
         dr_group.add_variable(
             "vehicle.rcs_cluster.total_torque[%d]" % i, "rcs_total_torque_%d" % i
+        )
+    for i in range(3):
+        dr_group.add_variable(
+            "vehicle.rw_cluster.torque_body[%d]" % i, "rw_total_torque_%d" % i
+        )
+    for i in range(3):
+        dr_group.add_variable(
+            "vehicle.rw_cluster.total_momentum[%d]" % i, "rw_total_momentum_%d" % i
+        )
+    for i in range(3):
+        dr_group.add_variable(
+            "vehicle.rw_cluster.wheels[%d].omega" % i, "rw_wheel_speed_%d" % i
+        )
+    for i in range(3):
+        dr_group.add_variable(
+            "vehicle.magnetorquer.torque_body[%d]" % i, "mtq_total_torque_%d" % i
+        )
+    for i in range(3):
+        dr_group.add_variable(
+            "vehicle.magnetorquer.dipole_body[%d]" % i, "mtq_dipole_%d" % i
         )
     trick.add_data_record_group(dr_group)
 

@@ -1,4 +1,3 @@
-
 /*******************************************************************************
 Purpose:
   Full control system
@@ -50,6 +49,12 @@ public:
 
     ControlOutput out;
     ControlErrorState err;
+
+    // Attitude gains
+    double Kp;
+    double Kd;
+
+    Control();
 
     void update(double dt);
 };
