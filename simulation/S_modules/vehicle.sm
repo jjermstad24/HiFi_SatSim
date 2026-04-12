@@ -18,9 +18,13 @@ Purpose:( This sim object models a very basic vehicle.)
 
 ##include "actuators/magnetorquer/include/magnetorquer.hh"
 ##include "actuators/rcs/include/rcs_cluster.hh"
-##include "actuators/reaction_wheel/include/reaction_wheel.hh"
+##include "actuators/reaction_wheel/include/rw_cluster.hh"
 
 ##include "environment/gravity/include/gravity_manager.hh"
+
+##include "guidance/include/guidance.hh"
+##include "control/include/control.hh"
+// ##include "control/include/allocator.hh"
 
 class VehicleSimObject : public Trick::SimObject
 {
@@ -59,15 +63,16 @@ public:
     // ACTUATORS
     //----------------------------------------
 
-    // Magnetorquer
     gnc::Magnetorquer magnetorquer;
-
-    // RCS
     gnc::RCSCluster rcs_cluster;
+    gnc::RWCluster rw_cluster;
 
-    // Reaction wheels (simple 3-wheel orthogonal set)
-    static const int NUM_WHEELS = 3;
-    gnc::ReactionWheel reaction_wheels[NUM_WHEELS];
+    //----------------------------------------
+    // GNC
+    //----------------------------------------
+    gnc::Guidance guidance;
+    gnc::Control control;
+    // gnc::Allocator allocator;
 
     //----------------------------------------
     // Constructor
@@ -78,7 +83,8 @@ public:
         //----------------------------------------
         // Dyn body init
         //----------------------------------------
-        P_ENV("initialization") dyn_body.initialize_model(dyn_manager);
+        P_ENV("initialization")
+        dyn_body.initialize_model(dyn_manager);
 
         //----------------------------------------
         // Derived states init
@@ -89,92 +95,279 @@ public:
         P_DYN("initialization") lvlh.initialize(dyn_body, dyn_manager);
 
         //----------------------------------------
-        // Magnetorquer setup
+        // Magnetorquer
         //----------------------------------------
         magnetorquer.initialize();
 
         //----------------------------------------
-        // RCS cluster setup
+        // RCS CLUSTER (12 thrusters, box layout)
         //----------------------------------------
-        rcs_cluster.num_thrusters = 4;
 
-        // Example geometry (you will want to tune this)
+        // =========================
+        // +X FACE (2 thrusters)
+        // =========================
         rcs_cluster.thrusters[0].position[0] =  1.0;
-        rcs_cluster.thrusters[0].direction[1] =  1.0;
+        rcs_cluster.thrusters[0].position[1] =  0.5;
+        rcs_cluster.thrusters[0].direction[0] = -1.0;
 
-        rcs_cluster.thrusters[1].position[0] = -1.0;
-        rcs_cluster.thrusters[1].direction[1] = -1.0;
+        rcs_cluster.thrusters[1].position[0] =  1.0;
+        rcs_cluster.thrusters[1].position[1] = -0.5;
+        rcs_cluster.thrusters[1].direction[0] = -1.0;
 
-        rcs_cluster.thrusters[2].position[1] =  1.0;
-        rcs_cluster.thrusters[2].direction[2] =  1.0;
+        // =========================
+        // -X FACE (2 thrusters)
+        // =========================
+        rcs_cluster.thrusters[2].position[0] = -1.0;
+        rcs_cluster.thrusters[2].position[1] =  0.5;
+        rcs_cluster.thrusters[2].direction[0] =  1.0;
 
-        rcs_cluster.thrusters[3].position[1] = -1.0;
-        rcs_cluster.thrusters[3].direction[2] = -1.0;
+        rcs_cluster.thrusters[3].position[0] = -1.0;
+        rcs_cluster.thrusters[3].position[1] = -0.5;
+        rcs_cluster.thrusters[3].direction[0] =  1.0;
 
-        for (int i = 0; i < rcs_cluster.num_thrusters; i++) {
-            rcs_cluster.thrusters[i].thrust_vac = 0.5;
+        // =========================
+        // +Y FACE (2 thrusters)
+        // =========================
+        rcs_cluster.thrusters[4].position[1] =  1.0;
+        rcs_cluster.thrusters[4].position[0] =  0.5;
+        rcs_cluster.thrusters[4].direction[1] = -1.0;
+
+        rcs_cluster.thrusters[5].position[1] =  1.0;
+        rcs_cluster.thrusters[5].position[0] = -0.5;
+        rcs_cluster.thrusters[5].direction[1] = -1.0;
+
+        // =========================
+        // -Y FACE (2 thrusters)
+        // =========================
+        rcs_cluster.thrusters[6].position[1] = -1.0;
+        rcs_cluster.thrusters[6].position[0] =  0.5;
+        rcs_cluster.thrusters[6].direction[1] =  1.0;
+
+        rcs_cluster.thrusters[7].position[1] = -1.0;
+        rcs_cluster.thrusters[7].position[0] = -0.5;
+        rcs_cluster.thrusters[7].direction[1] =  1.0;
+
+        // =========================
+        // +Z FACE (2 thrusters)
+        // =========================
+        rcs_cluster.thrusters[8].position[2] =  1.0;
+        rcs_cluster.thrusters[8].position[0] =  0.5;
+        rcs_cluster.thrusters[8].direction[2] = -1.0;
+
+        rcs_cluster.thrusters[9].position[2] =  1.0;
+        rcs_cluster.thrusters[9].position[0] = -0.5;
+        rcs_cluster.thrusters[9].direction[2] = -1.0;
+
+        // =========================
+        // -Z FACE (2 thrusters)
+        // =========================
+        rcs_cluster.thrusters[10].position[2] = -1.0;
+        rcs_cluster.thrusters[10].position[0] =  0.5;
+        rcs_cluster.thrusters[10].direction[2] =  1.0;
+
+        rcs_cluster.thrusters[11].position[2] = -1.0;
+        rcs_cluster.thrusters[11].position[0] = -0.5;
+        rcs_cluster.thrusters[11].direction[2] =  1.0;
+
+        //----------------------------------------
+        // COMMON THRUSTER PARAMETERS
+        //----------------------------------------
+        for (int i = 0; i < 12; i++) {
+
+            rcs_cluster.thrusters[i].thrust_vac = 6.0;
             rcs_cluster.thrusters[i].Isp = 220.0;
+
             rcs_cluster.thrusters[i].chamber_pressure_nom = 2e5;
+
             rcs_cluster.thrusters[i].valve_tau = 0.02;
             rcs_cluster.thrusters[i].pressure_tau = 0.05;
+
             rcs_cluster.thrusters[i].min_on_time = 0.01;
 
             rcs_cluster.thrusters[i].initialize();
         }
 
         //----------------------------------------
-        // Reaction wheel setup (orthogonal)
+        // REACTION WHEEL CLUSTER
         //----------------------------------------
+        rw_cluster.num_wheels = 3;
+
         // X wheel
-        reaction_wheels[0].axis[0] = 1.0;
-        reaction_wheels[0].axis[1] = 0.0;
-        reaction_wheels[0].axis[2] = 0.0;
+        rw_cluster.wheels[0].axis[0] = 1.0;
+        rw_cluster.wheels[0].axis[1] = 0.0;
+        rw_cluster.wheels[0].axis[2] = 0.0;
 
         // Y wheel
-        reaction_wheels[1].axis[0] = 0.0;
-        reaction_wheels[1].axis[1] = 1.0;
-        reaction_wheels[1].axis[2] = 0.0;
+        rw_cluster.wheels[1].axis[0] = 0.0;
+        rw_cluster.wheels[1].axis[1] = 1.0;
+        rw_cluster.wheels[1].axis[2] = 0.0;
 
         // Z wheel
-        reaction_wheels[2].axis[0] = 0.0;
-        reaction_wheels[2].axis[1] = 0.0;
-        reaction_wheels[2].axis[2] = 1.0;
+        rw_cluster.wheels[2].axis[0] = 0.0;
+        rw_cluster.wheels[2].axis[1] = 0.0;
+        rw_cluster.wheels[2].axis[2] = 1.0;
 
-        for (int i = 0; i < NUM_WHEELS; i++) {
-            reaction_wheels[i].J = 0.001;
-            reaction_wheels[i].max_torque = 0.02;
-            reaction_wheels[i].max_speed = 6000.0 * 2.0 * 3.14159 / 60.0;
+        for (int i = 0; i < rw_cluster.num_wheels; i++) {
+            rw_cluster.wheels[i].J = 0.001;
+            rw_cluster.wheels[i].max_torque = 0.02;
+            rw_cluster.wheels[i].max_speed = 6000.0 * 2.0 * 3.14159 / 60.0;
 
-            reaction_wheels[i].viscous_friction = 1e-5;
-            reaction_wheels[i].coulomb_friction = 1e-4;
-            reaction_wheels[i].torque_rate_limit = 0.1;
+            rw_cluster.wheels[i].viscous_friction = 1e-5;
+            rw_cluster.wheels[i].coulomb_friction = 1e-4;
+            rw_cluster.wheels[i].torque_rate_limit = 0.1;
 
-            reaction_wheels[i].initialize();
+            rw_cluster.wheels[i].initialize();
         }
+
+        P_DYN("environment") update();
     }
 
     //----------------------------------------
-    // Runtime update (call in Trick job)
+    // Runtime update (Trick job)
     //----------------------------------------
-    void update(double dt)
-    {
-        //----------------------------------------
-        // Update derived states
-        //----------------------------------------
-        orb_elem.update();
-        pfix.update();
-        lvlh.update();
-        euler_rpy.update();
+private:
+    void update()
+{
+    //----------------------------------------
+    // Derived states
+    //----------------------------------------
+    orb_elem.update();
+    pfix.update();
+    lvlh.update();
+    euler_rpy.update();
 
-        //----------------------------------------
-        // Magnetorquer
-        //----------------------------------------
-        magnetorquer.update(dt);
+    //----------------------------------------
+    // ================================
+    // STATE EXTRACTION (JEOD → GNC)
+    // ================================
+    //----------------------------------------
 
-        //----------------------------------------
-        // RCS
-        //----------------------------------------
-        rcs_cluster.update(dt);
+    double r_eci[3];
+    double v_eci[3];
+    double w_body[3];
+    double q_body_eci[4];
+
+    // Position / velocity (inertial)
+    for (int i = 0; i < 3; i++) {
+        r_eci[i] = dyn_body.composite_body.state.trans.position[i];
+        v_eci[i] = dyn_body.composite_body.state.trans.velocity[i];
+        w_body[i] = dyn_body.composite_body.state.rot.ang_vel_this[i];
+    }
+
+    // Quaternion (JEOD uses scalar last!)
+    q_body_eci[0] = dyn_body.composite_body.state.rot.Q_parent_this.vector[0];
+    q_body_eci[1] = dyn_body.composite_body.state.rot.Q_parent_this.vector[1];
+    q_body_eci[2] = dyn_body.composite_body.state.rot.Q_parent_this.vector[2];
+    q_body_eci[3] = dyn_body.composite_body.state.rot.Q_parent_this.scalar;
+
+    //----------------------------------------
+    // ================================
+    // GUIDANCE
+    // ================================
+    //----------------------------------------
+
+    // Feed state
+    for (int i = 0; i < 3; i++) {
+        guidance.sc_pos_eci[i] = r_eci[i];
+        guidance.sc_vel_eci[i] = v_eci[i];
+    }
+
+    // Example: target = Earth center (nadir pointing)
+    for (int i = 0; i < 3; i++) {
+        guidance.target_pos[i] = 0.0;
+    }
+
+    guidance.mode = gnc::TARGET;
+
+    guidance.update(DYNAMICS);
+
+    //----------------------------------------
+    // ================================
+    // CONTROL
+    // ================================
+    //----------------------------------------
+
+    // Attitude
+    for (int i = 0; i < 4; i++) {
+        control.current_state.q[i]  = q_body_eci[i];
+        control.desired_state.q[i] = guidance.out.q_desired[i];
+    }
+
+    // Rates
+    for (int i = 0; i < 3; i++) {
+        control.current_state.w[i]  = w_body[i];
+        control.desired_state.w[i] = guidance.out.w_desired[i];
+    }
+
+    // Translation
+    for (int i = 0; i < 3; i++) {
+        control.current_state.r[i]  = r_eci[i];
+        control.current_state.v[i]  = v_eci[i];
+        control.desired_state.r[i] = guidance.out.r_desired[i];
+        control.desired_state.v[i] = guidance.out.v_desired[i];
+    }
+
+    control.update(DYNAMICS);
+
+    //----------------------------------------
+    // ================================
+    // ALLOCATION
+    // ================================
+    //----------------------------------------
+
+    // for (int i = 0; i < 3; i++) {
+    //     allocator.torque[i] = control.out.torque[i];
+    //     allocator.force[i]  = control.out.force[i];
+    // }
+
+    // // Magnetic field (you need to wire this from your env model)
+    // double B_body[3] = {0.0, 0.0, 0.0}; // TODO: replace with real field
+    // for (int i = 0; i < 3; i++) {
+    //     allocator.B[i] = B_body[i];
+    // }
+
+    // allocator.update();
+
+    //----------------------------------------
+    // ================================
+    // APPLY TO ACTUATORS
+    // ================================
+    //----------------------------------------
+
+    // //----------------------------------------
+    // // Reaction Wheels
+    // //----------------------------------------
+    // for (int i = 0; i < rw_cluster.num_wheels; i++) {
+    //     rw_cluster.wheels[i].commanded_torque =
+    //         allocator.wheel_cmd[i];
+    // }
+
+    //----------------------------------------
+    // Magnetorquer
+    //----------------------------------------
+    // for (int i = 0; i < 3; i++) {
+    //     magnetorquer.cmd_dipole_body[i] = allocator.mtq_cmd[i];
+    // }
+
+    for (int i = 0; i < 3; i++) {
+        rcs_cluster.desired_force[i] = control.out.force[i];
+        rcs_cluster.desired_torque[i] = control.out.torque[i];
+    }
+    
+    // //----------------------------------------
+    // // RCS Thrusters (simple mapping)
+    // //----------------------------------------
+    // for (int i = 0; i < 12; i++) {
+    //     rcs_cluster.thrusters[i].desired_force =
+    //         allocator.thruster_cmd[i % 3];
+    // }
+
+    //----------------------------------------
+    // ACTUATOR UPDATE
+    //----------------------------------------
+    // magnetorquer.update(DYNAMICS);
+    rcs_cluster.update(DYNAMICS);
+    // rw_cluster.update(DYNAMICS);
     }
 
 private:

@@ -5,10 +5,10 @@ namespace gnc {
 AttitudeController::AttitudeController(double kp, double kd):kp_(kp),kd_(kd){}
 
 void AttitudeController::compute(const State& s,const AttitudeCommand& c,double t[3]) {
-    jeod::Quaternion qc = s.q;
+    jeod::Quaternionernion qc = s.q;
     qc.conjugate();
 
-    jeod::Quaternion qe;
+    jeod::Quaternionernion qe;
     c.q_cmd.multiply(qc, qe);
 
     double e[3];

@@ -21,7 +21,10 @@ target.lon = np.deg2rad(-70)
 target.lat = np.deg2rad(30)
 target.alt = 0
 
-trick.sim_services.exec_set_terminate_time(6000.0)
+vehicle.rcs_cluster.desired_force = [0,100,0]
+trick.add_read(5,"vehicle.rcs_cluster.desired_force = [0,0,0]")
+
+trick.sim_services.exec_set_terminate_time(1000.0)
 
 dr_group = trick.sim_services.DRAscii("target")
 dr_group.thisown = 0
@@ -42,6 +45,38 @@ for i in range(3):
 for i in range(3):
   for j in range(3):
     dr_group.add_variable(f"vehicle.dyn_body.core_body.state.rot.T_parent_this[{i}][{j}]",f'vehicle.T_i2b[{i}]')
+trick.add_data_record_group(dr_group)
+
+dr_group = trick.sim_services.DRAscii("actuators")
+dr_group.thisown = 0
+dr_group.set_cycle(1)
+dr_group.freq = trick.sim_services.DR_Always
+# for i in range(3):
+#   dr_group.add_variable(
+#     f"vehicle.rw_cluster.torque_body[{i}]",
+#     f"rw_total_torque_{i}"
+#   )
+# for i in range(3):
+#   dr_group.add_variable(
+#     f"vehicle.rcs_cluster.total_force[{i}]",
+#     f"rcs_total_force_{i}"
+#   )
+for i in range(12):
+  for j in range(3):
+    dr_group.add_variable(
+      f"vehicle.rcs_cluster.thrusters[{i}].force_body[{j}]",
+      f"thruster{i}.force[{j}]"
+    )
+for i in range(3):
+  dr_group.add_variable(
+    f"vehicle.rcs_cluster.total_torque[{i}]",
+    f"rcs_total_torque_{i}"
+  )
+# for i in range(3):
+#   dr_group.add_variable(
+#     f"vehicle.magnetorquer.torque_body[{i}]",
+#     f"mtq_torque_{i}"
+#   )
 trick.add_data_record_group(dr_group)
 
 exec(open("Log_data/log_orb_elem.py").read())

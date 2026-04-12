@@ -13,7 +13,7 @@ Library dependencies:
 namespace gnc {
 
 struct State {
-    jeod::Quaternion q; // (--)
+    jeod::Quaternionernion q; // (--)
     double omega[3]; // (--)
     double gyro_bias[3]; // (--)
 };
@@ -21,12 +21,12 @@ struct State {
 struct SensorData {
     double gyro[3]; // (--)
     double mag[3]; // (--)
-    jeod::Quaternion star_tracker_q; // (--)
+    jeod::Quaternionernion star_tracker_q; // (--)
     bool star_tracker_valid; // (--)
 };
 
 struct AttitudeCommand {
-    jeod::Quaternion q_cmd; // (--)
+    jeod::Quaternionernion q_cmd; // (--)
     double omega_cmd[3]; // (--)
 };
 

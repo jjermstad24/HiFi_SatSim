@@ -4,28 +4,48 @@ Purpose:
 Library dependencies:
   ((../src/rcs_cluster.cpp))
 *******************************************************************************/
+
 #pragma once
+
 #include "rcs_thruster.hh"
 #include "utils/math/include/math_utils.hh"
+
 #include <cmath>
 #include <cstring>
+
 namespace gnc {
+
 class RCSCluster {
 public:
-    static const int MAX_THRUSTERS = 32;
-    RCSThruster thrusters[MAX_THRUSTERS];
-    int num_thrusters;
-    double desired_force[3], desired_torque[3];
-    double total_force[3], total_torque[3];
-    double allocation_matrix[6][MAX_THRUSTERS];
-    double commands[MAX_THRUSTERS];
+
+    // HARD DESIGN CONSTANT (this IS the system size)
+    static const int num_thrusters = 12;
+
+    RCSThruster thrusters[num_thrusters];
+
+    // Inputs
+    double desired_force[3];
+    double desired_torque[3];
+
+    // Outputs
+    double total_force[3];
+    double total_torque[3];
+
+    // Allocation
+    double allocation_matrix[6][num_thrusters];
+    double commands[num_thrusters];
+
     RCSCluster();
+
     void initialize();
     void update(double dt);
+
 private:
+
     void build_allocation_matrix();
     void solve_allocation();
     void apply_commands(double dt);
     void accumulate_outputs();
 };
+
 }
