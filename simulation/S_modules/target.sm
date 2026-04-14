@@ -18,7 +18,7 @@ public:
         : earth(earth_in)
     {
         P_ENV("initialization") initialize();
-        P_DYN("environment") update();
+        P_DYN(DYNAMICS, "environment") update();
     }
 
     int initialize()

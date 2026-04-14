@@ -1,4 +1,3 @@
-
 /*******************************************************************************
 Purpose:
   Full guidance system with frames, slew, targeting

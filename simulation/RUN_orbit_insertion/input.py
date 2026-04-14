@@ -11,6 +11,7 @@ vehicle.dyn_body.name = trick.NamedItem("vehicle")
 vehicle.dyn_body.integ_frame_name = "Earth.inertial"
 vehicle.dyn_body.translational_dynamics = True
 vehicle.dyn_body.rotational_dynamics = True
+
 exec(open("Modified_data/time.py", "r").read())
 exec(open("Modified_data/vehicle_mass_props.py", "r").read())
 exec(open("Modified_data/vehicle_grav_controls.py", "r").read())
@@ -24,22 +25,19 @@ target.alt = 0
 
 vehicle.load_config('/home/jjermsta/SimulationFramework/simulation/Modified_data/vehicle_config.json')
 
-# --- GNC: target tracking (nadir / Earth-centered LOS; vehicle.sm feeds target_pos each step) ---
-# gnc::GuidanceMode: IDLE=0, TARGET=1, SLEW=2, STATIONKEEP=3, RCS_MANEUVER=4
-# gnc::GuidanceFrame: INERTIAL=0, LVLH=1, NED=2
-vehicle.fsw.guidance.mode = 1
-vehicle.fsw.guidance.target_frame = 0
+# --- Orbit Insertion: Constant force command for a specific duration ---
+vehicle.fsw.guidance.mode = 4 # RCS_MANEUVER
+vehicle.fsw.guidance.maneuver_force_eci = [20.0, 10.0, 0.0] # N (example)
+vehicle.fsw.control_mode = 1 # RCS_ONLY
 
-# --- FSW Control Mode ---
-vehicle.fsw.control_mode = 1 # Set the desired control mode
-trick.sim_services.exec_set_terminate_time(100.0)
+# --- For constant force, we need allocator to take command from guidance ---
+# GncActuatorCmdSource: GNC_CMD_FROM_CONTROL = 0, GNC_CMD_FROM_GUIDANCE = 1
+vehicle.fsw.allocator.rcs_cmd_source = 1 
+
+trick.sim_services.exec_set_terminate_time(500.0)
 
 exec(open("Log_data/log_run_test.py").read())
 setup_run_test_logging(0.025)
 
 for i in range(3):
     vehicle.fsw.guidance.target_pos[i] = target.pos_inertial[i]
-
-# --- Attitude Control Gains ---
-vehicle.fsw.control.Kp = 20.0
-vehicle.fsw.control.Kd = 2.0

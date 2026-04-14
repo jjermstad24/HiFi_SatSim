@@ -1,0 +1,95 @@
+{
+  "magnetorquer": {
+    "R": 2.0,
+    "L": 0.02,
+    "max_current": 0.5,
+    "max_dipole": 0.05,
+    "N": 150.0,
+    "area": 1.0e-4
+  },
+
+  "rcs_cluster": {
+    "thrusters": [
+      { "position": [ 1.0,  1.0,  0.0], "direction": [-1.0,  0.0,  0.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [ 1.0, -1.0,  0.0], "direction": [-1.0,  0.0,  0.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [-1.0,  1.0,  0.0], "direction": [ 1.0,  0.0,  0.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [-1.0, -1.0,  0.0], "direction": [ 1.0,  0.0,  0.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [ 0.0,  1.0,  1.0], "direction": [ 0.0, -1.0,  0.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [ 0.0,  1.0, -1.0], "direction": [ 0.0, -1.0,  0.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [ 0.0, -1.0,  1.0], "direction": [ 0.0,  1.0,  0.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [ 0.0, -1.0, -1.0], "direction": [ 0.0,  1.0,  0.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [ 1.0,  0.0,  1.0], "direction": [ 0.0,  0.0, -1.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [-1.0,  0.0,  1.0], "direction": [ 0.0,  0.0, -1.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [ 1.0,  0.0, -1.0], "direction": [ 0.0,  0.0,  1.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 },
+
+      { "position": [-1.0,  0.0, -1.0], "direction": [ 0.0,  0.0,  1.0],
+        "thrust_vac": 6.0, "Isp": 220.0, "chamber_pressure_nom": 2e5,
+        "valve_tau": 0.02, "pressure_tau": 0.05, "min_on_time": 0.01 }
+    ]
+  },
+
+  "reaction_wheels": {
+    "num_wheels": 3,
+    "wheels": [
+      {
+        "axis": [1.0, 0.0, 0.0],
+        "J": 0.001,
+        "max_torque": 0.02,
+        "max_speed": 628.3185307179587,
+        "viscous_friction": 1e-5,
+        "coulomb_friction": 1e-4,
+        "torque_rate_limit": 0.1
+      },
+      {
+        "axis": [0.0, 1.0, 0.0],
+        "J": 0.001,
+        "max_torque": 0.02,
+        "max_speed": 628.3185307179587,
+        "viscous_friction": 1e-5,
+        "coulomb_friction": 1e-4,
+        "torque_rate_limit": 0.1
+      },
+      {
+        "axis": [0.0, 0.0, 1.0],
+        "J": 0.001,
+        "max_torque": 0.02,
+        "max_speed": 628.3185307179587,
+        "viscous_friction": 1e-5,
+        "coulomb_friction": 1e-4,
+        "torque_rate_limit": 0.1
+      }
+    ]
+  }
+}
