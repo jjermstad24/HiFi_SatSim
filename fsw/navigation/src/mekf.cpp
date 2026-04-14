@@ -12,7 +12,7 @@ void MEKF::predict(const double gyro[3], double dt) {
     double w[3];
     jeod::Vector3::diff(gyro, bias_, w);
 
-    jeod::Quaternionernion dq;
+    jeod::Quaternion dq;
     dq.scalar = 1.0;
     double v[3];
     jeod::Vector3::scale(w, 0.5*dt, v);
@@ -24,17 +24,17 @@ void MEKF::predict(const double gyro[3], double dt) {
     jeod::Vector3::copy(w, omega_);
 }
 
-void MEKF::update_star_tracker(const jeod::Quaternionernion& q_meas) {
-    jeod::Quaternionernion qc = q_;
+void MEKF::update_star_tracker(const jeod::Quaternion& q_meas) {
+    jeod::Quaternion qc = q_;
     qc.conjugate();
 
-    jeod::Quaternionernion qe;
+    jeod::Quaternion qe;
     q_meas.multiply(qc, qe);
 
     double corr[3];
     jeod::Vector3::scale(qe.vector, 0.1, corr);
 
-    jeod::Quaternionernion dq;
+    jeod::Quaternion dq;
     dq.scalar = 1.0;
     jeod::Vector3::copy(corr, dq.vector);
 

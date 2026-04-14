@@ -25,10 +25,13 @@ target.alt = 0
 
 vehicle.load_config('/home/jjermsta/SimulationFramework/simulation/Modified_data/vehicle_config.json')
 
-# --- Orbit Insertion: Constant force command for a specific duration ---
-vehicle.fsw.guidance.mode = 4 # RCS_MANEUVER
+# --- Orbit Insertion via sequencer activity configuration ---
 vehicle.fsw.guidance.maneuver_force_eci = [20.0, 10.0, 0.0] # N (example)
-vehicle.fsw.control_mode = 1 # RCS_ONLY
+vehicle.fsw.sequencer_enabled = True
+vehicle.fsw.sequence_auto_advance = False
+vehicle.fsw.set_activity(3) # FSW_ACTIVITY_STATIONKEEP
+vehicle.fsw.activities[3].guidance_mode = 4 # RCS_MANEUVER
+vehicle.fsw.activities[3].control_mode = 1 # ACTUATOR_MODE_RCS_ONLY
 
 # --- For constant force, we need allocator to take command from guidance ---
 # GncActuatorCmdSource: GNC_CMD_FROM_CONTROL = 0, GNC_CMD_FROM_GUIDANCE = 1
@@ -40,4 +43,4 @@ exec(open("Log_data/log_run_test.py").read())
 setup_run_test_logging(0.025)
 
 for i in range(3):
-    vehicle.fsw.guidance.target_pos[i] = target.pos_inertial[i]
+    vehicle.fsw.guidance.target_pos[i] = trick.attach_units("m", target.pos_inertial[i])

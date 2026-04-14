@@ -15,13 +15,13 @@ class MEKF {
 public:
     MEKF();
     void predict(const double gyro[3], double dt);
-    void update_star_tracker(const jeod::Quaternionernion& q);
+    void update_star_tracker(const jeod::Quaternion& q);
     State get_state() const;
 
 private:
-    jeod::Quaternionernion q_;
-    double omega_[3];
-    double bias_[3];
+    jeod::Quaternion q_; //!< trick_units(--)
+    double omega_[3]; //!< trick_units(rad/s)
+    double bias_[3]; //!< trick_units(rad/s)
 };
 
 }

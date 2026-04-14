@@ -210,6 +210,12 @@ public:
         fsw.initialize();
         fsw_substep = 0;
 
+        //----------------------------------------
+        // ACTUATOR UPDATE (physics, 200 Hz; holds FSW commands between updates)
+        //----------------------------------------
+        magnetorquer.update(DYNAMICS);
+        rw_cluster.update(DYNAMICS);
+        rcs_cluster.update(DYNAMICS);
         P_DYN(DYNAMICS, "environment") update();
     }
 
@@ -256,52 +262,48 @@ private:
     dyn_body.composite_body.state.rot.Q_parent_this.conjugate(q_eci_to_body);
     q_eci_to_body.left_quat_transform(B_eci, B_body);
 
-    if (fsw_substep == 0) {
+    //----------------------------------------
+    // ================================
+    // POPULATE SIM2FSW_BUS
+    // ================================
+    //----------------------------------------
+    for (int i = 0; i < 3; i++) {
+        sim2fsw_bus.r_eci[i] = r_eci[i];
+        sim2fsw_bus.v_eci[i] = v_eci[i];
+        sim2fsw_bus.w_body[i] = w_body[i];
+        sim2fsw_bus.B_body[i] = B_body[i];
+    }
+    dyn_body.composite_body.state.rot.Q_parent_this.conjugate(sim2fsw_bus.q_eci_to_body);
+    sim2fsw_bus.sim_time = exec_get_sim_time();
+    sim2fsw_bus.fsw_dt = FSW_DT;
 
-            //----------------------------------------
-            // ================================
-            // POPULATE SIM2FSW_BUS
-            // ================================
-            //----------------------------------------
-            for (int i = 0; i < 3; i++) {
-                sim2fsw_bus.r_eci[i] = r_eci[i];
-                sim2fsw_bus.v_eci[i] = v_eci[i];
-                sim2fsw_bus.w_body[i] = w_body[i];
-                sim2fsw_bus.B_body[i] = B_body[i];
-            }
-            dyn_body.composite_body.state.rot.Q_parent_this.conjugate(sim2fsw_bus.q_eci_to_body);
-            sim2fsw_bus.sim_time = exec_get_sim_time();
-            sim2fsw_bus.fsw_dt = FSW_DT;
+    //----------------------------------------
+    // ================================
+    // FSW UPDATE
+    // ================================
+    //----------------------------------------
+    fsw.update(sim2fsw_bus, fsw2sim_bus);
 
-            //----------------------------------------
-            // ================================
-            // FSW UPDATE
-            // ================================
-            //----------------------------------------
-            fsw.update(sim2fsw_bus, fsw2sim_bus);
-
-            //----------------------------------------
-            // ================================
-            // APPLY FSW2SIM_BUS COMMANDS TO ACTUATORS
-            // ================================
-            //----------------------------------------
-            for (int i = 0; i < 3; i++) {
-                rw_cluster.torque_cmd[i] = fsw2sim_bus.rw_torque_cmd[i];
-                magnetorquer.cmd_dipole_body[i] = fsw2sim_bus.mtq_dipole_cmd[i];
-                // RCS thruster commands are handled internally by FSW's rcs_cluster
-            }
-
+    //----------------------------------------
+    // ================================
+    // APPLY FSW2SIM_BUS COMMANDS TO ACTUATORS
+    // ================================
+    //----------------------------------------
+    for (int i = 0; i < 3; i++) {
+        rw_cluster.torque_cmd[i] = fsw2sim_bus.rw_torque_cmd[i];
+        magnetorquer.cmd_dipole_body[i] = fsw2sim_bus.mtq_dipole_cmd[i];
     }
 
-    fsw_substep = (fsw_substep + 1) % FSW_STRIDE;
+    for (int i = 0; i < gnc::Fsw2SimBus::num_rcs_thrusters; i++) {
+        rcs_cluster.thrusters[i].cmd = fsw2sim_bus.rcs_thruster_cmd[i];
+    }
 
-    //----------------------------------------
-    // ACTUATOR UPDATE (physics, 200 Hz; holds FSW commands between updates)
-    //----------------------------------------
+    // Step actuator internal dynamics every vehicle update so commanded
+    // actuator states produce force/torque in this run.
     magnetorquer.update(DYNAMICS);
     rw_cluster.update(DYNAMICS);
     rcs_cluster.update(DYNAMICS);
-    }
+}
 
     VehicleSimObject(const VehicleSimObject &);
     VehicleSimObject & operator=(const VehicleSimObject &);

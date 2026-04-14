@@ -1,13 +1,70 @@
 #include "../include/fsw.hh"
 
 #include <cstring> // For std::memcpy, std::memset
+#include <cmath>
 
 namespace gnc {
 
 Fsw::Fsw()
-    : control_mode(ACTUATOR_MODE_RW_ONLY) // Default to RW only control
+    : control_mode(ACTUATOR_MODE_RW_ONLY),
+      current_activity(FSW_ACTIVITY_DETUMBLE),
+      sequencer_enabled(false),
+      sequence_auto_advance(false),
+      activity_elapsed_s(0.0)
 {
-    // Constructor of member objects will be called automatically
+    for (int i = 0; i < FSW_ACTIVITY_COUNT; i++) {
+        activities[i].num_exit_groups = 0;
+        for (int g = 0; g < ActivityConfig::max_exit_groups; g++) {
+            activities[i].exit_groups[g].num_conditions = 0;
+        }
+    }
+
+    // Activity definitions and transition logic are owned here in C++.
+    activities[FSW_ACTIVITY_DETUMBLE].guidance_mode = IDLE;
+    activities[FSW_ACTIVITY_DETUMBLE].control_mode = ACTUATOR_MODE_RCS_ONLY;
+    activities[FSW_ACTIVITY_DETUMBLE].kp = 0.0;
+    activities[FSW_ACTIVITY_DETUMBLE].kd = 5.0;
+    activities[FSW_ACTIVITY_DETUMBLE].num_exit_groups = 1;
+    activities[FSW_ACTIVITY_DETUMBLE].exit_groups[0].num_conditions = 1;
+    activities[FSW_ACTIVITY_DETUMBLE].exit_groups[0].conditions[0].signal = ACTIVITY_SIGNAL_BODY_RATE_MAG;
+    activities[FSW_ACTIVITY_DETUMBLE].exit_groups[0].conditions[0].cmp = ACTIVITY_CMP_LT;
+    activities[FSW_ACTIVITY_DETUMBLE].exit_groups[0].conditions[0].threshold = 0.005; // rad/s
+
+    activities[FSW_ACTIVITY_POINTING].guidance_mode = TARGET;
+    activities[FSW_ACTIVITY_POINTING].control_mode = ACTUATOR_MODE_RW_ONLY;
+    activities[FSW_ACTIVITY_POINTING].kp = 10.0;
+    activities[FSW_ACTIVITY_POINTING].kd = 2.0;
+    activities[FSW_ACTIVITY_POINTING].num_exit_groups = 1;
+    activities[FSW_ACTIVITY_POINTING].exit_groups[0].num_conditions = 1;
+    activities[FSW_ACTIVITY_POINTING].exit_groups[0].conditions[0].signal = ACTIVITY_SIGNAL_ELAPSED_TIME;
+    activities[FSW_ACTIVITY_POINTING].exit_groups[0].conditions[0].cmp = ACTIVITY_CMP_GE;
+    activities[FSW_ACTIVITY_POINTING].exit_groups[0].conditions[0].threshold = 30.0; // s
+
+    activities[FSW_ACTIVITY_SLEW].guidance_mode = SLEW;
+    activities[FSW_ACTIVITY_SLEW].control_mode = ACTUATOR_MODE_RW_AND_RCS;
+    activities[FSW_ACTIVITY_SLEW].kp = 8.0;
+    activities[FSW_ACTIVITY_SLEW].kd = 2.0;
+    activities[FSW_ACTIVITY_SLEW].num_exit_groups = 1;
+    activities[FSW_ACTIVITY_SLEW].exit_groups[0].num_conditions = 2;
+    // Example AND: elapsed_time >= 20s AND body_rate_mag < 0.02 rad/s
+    activities[FSW_ACTIVITY_SLEW].exit_groups[0].conditions[0].signal = ACTIVITY_SIGNAL_ELAPSED_TIME;
+    activities[FSW_ACTIVITY_SLEW].exit_groups[0].conditions[0].cmp = ACTIVITY_CMP_GE;
+    activities[FSW_ACTIVITY_SLEW].exit_groups[0].conditions[0].threshold = 20.0;
+    activities[FSW_ACTIVITY_SLEW].exit_groups[0].conditions[1].signal = ACTIVITY_SIGNAL_BODY_RATE_MAG;
+    activities[FSW_ACTIVITY_SLEW].exit_groups[0].conditions[1].cmp = ACTIVITY_CMP_LT;
+    activities[FSW_ACTIVITY_SLEW].exit_groups[0].conditions[1].threshold = 0.02;
+
+    activities[FSW_ACTIVITY_STATIONKEEP].guidance_mode = STATIONKEEP;
+    activities[FSW_ACTIVITY_STATIONKEEP].control_mode = ACTUATOR_MODE_RCS_ONLY;
+    activities[FSW_ACTIVITY_STATIONKEEP].kp = 1.0;
+    activities[FSW_ACTIVITY_STATIONKEEP].kd = 0.5;
+    activities[FSW_ACTIVITY_STATIONKEEP].num_exit_groups = 1;
+    activities[FSW_ACTIVITY_STATIONKEEP].exit_groups[0].num_conditions = 1;
+    activities[FSW_ACTIVITY_STATIONKEEP].exit_groups[0].conditions[0].signal = ACTIVITY_SIGNAL_ELAPSED_TIME;
+    activities[FSW_ACTIVITY_STATIONKEEP].exit_groups[0].conditions[0].cmp = ACTIVITY_CMP_GE;
+    activities[FSW_ACTIVITY_STATIONKEEP].exit_groups[0].conditions[0].threshold = 120.0; // s
+
+    set_activity(current_activity);
 }
 
 void Fsw::initialize() {
@@ -92,7 +149,108 @@ void Fsw::initialize() {
     }
 }
 
+int Fsw::activity_count()
+{
+    return FSW_ACTIVITY_COUNT;
+}
+
+bool Fsw::evaluate_activity_condition(const ActivityCondition& c,
+                                     const Sim2FswBus& sim2fsw_bus) const
+{
+    double value = 0.0;
+    switch (c.signal) {
+        case ACTIVITY_SIGNAL_BODY_RATE_MAG:
+            value = std::sqrt(sim2fsw_bus.w_body[0] * sim2fsw_bus.w_body[0] +
+                              sim2fsw_bus.w_body[1] * sim2fsw_bus.w_body[1] +
+                              sim2fsw_bus.w_body[2] * sim2fsw_bus.w_body[2]);
+            break;
+        case ACTIVITY_SIGNAL_BODY_RATE_X_ABS:
+            value = std::fabs(sim2fsw_bus.w_body[0]);
+            break;
+        case ACTIVITY_SIGNAL_BODY_RATE_Y_ABS:
+            value = std::fabs(sim2fsw_bus.w_body[1]);
+            break;
+        case ACTIVITY_SIGNAL_BODY_RATE_Z_ABS:
+            value = std::fabs(sim2fsw_bus.w_body[2]);
+            break;
+        case ACTIVITY_SIGNAL_ELAPSED_TIME:
+            value = activity_elapsed_s;
+            break;
+        default:
+            return false;
+    }
+
+    switch (c.cmp) {
+        case ACTIVITY_CMP_LT: return value < c.threshold;
+        case ACTIVITY_CMP_LE: return value <= c.threshold;
+        case ACTIVITY_CMP_GT: return value > c.threshold;
+        case ACTIVITY_CMP_GE: return value >= c.threshold;
+        default: return false;
+    }
+}
+
+bool Fsw::should_exit_current_activity(const Sim2FswBus& sim2fsw_bus) const
+{
+    if (current_activity < 0 || current_activity >= FSW_ACTIVITY_COUNT) {
+        return false;
+    }
+    const ActivityConfig& cfg = activities[current_activity];
+    if (cfg.num_exit_groups <= 0) {
+        return false;
+    }
+
+    // OR across groups, AND within each group.
+    for (int g = 0; g < cfg.num_exit_groups && g < ActivityConfig::max_exit_groups; g++) {
+        const ActivityCriteriaGroup& group = cfg.exit_groups[g];
+        if (group.num_conditions <= 0) {
+            continue;
+        }
+        bool group_ok = true;
+        for (int i = 0; i < group.num_conditions && i < ActivityCriteriaGroup::max_conditions; i++) {
+            if (!evaluate_activity_condition(group.conditions[i], sim2fsw_bus)) {
+                group_ok = false;
+                break;
+            }
+        }
+        if (group_ok) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Fsw::set_activity(int activity_idx)
+{
+    if (activity_idx < 0 || activity_idx >= FSW_ACTIVITY_COUNT) {
+        return;
+    }
+
+    current_activity = activity_idx;
+    guidance.mode = activities[current_activity].guidance_mode;
+    control_mode = activities[current_activity].control_mode;
+    control.Kp = activities[current_activity].kp;
+    control.Kd = activities[current_activity].kd;
+    activity_elapsed_s = 0.0;
+}
+
+void Fsw::transition_to_next_activity()
+{
+    int next = current_activity + 1;
+    if (next >= FSW_ACTIVITY_COUNT) {
+        next = 0;
+    }
+    set_activity(next);
+}
+
 void Fsw::update(const Sim2FswBus& sim2fsw_bus, Fsw2SimBus& fsw2sim_bus) {
+    if (sequencer_enabled &&
+        current_activity >= 0 &&
+        current_activity < FSW_ACTIVITY_COUNT) {
+        guidance.mode = activities[current_activity].guidance_mode;
+        control_mode = activities[current_activity].control_mode;
+        control.Kp = activities[current_activity].kp;
+        control.Kd = activities[current_activity].kd;
+    }
 
     // --- GNC: STATE EXTRACTION (SIM → GNC) ---
     // Position / velocity (inertial)
@@ -201,7 +359,19 @@ void Fsw::update(const Sim2FswBus& sim2fsw_bus, Fsw2SimBus& fsw2sim_bus) {
     for (int i = 0; i < 3; i++) {
         fsw2sim_bus.rw_torque_cmd[i] = allocator.rw_torque_cmd[i];
         fsw2sim_bus.mtq_dipole_cmd[i] = allocator.mtq_dipole_cmd[i];
-        // For RCS, the thruster commands are directly applied to rcs_cluster internally by allocator.update()
+    }
+
+    for (int i = 0; i < Fsw2SimBus::num_rcs_thrusters; i++) {
+        fsw2sim_bus.rcs_thruster_cmd[i] = rcs_cluster.thrusters[i].cmd;
+    }
+
+    if (sequencer_enabled) {
+        activity_elapsed_s += sim2fsw_bus.fsw_dt;
+    }
+    if (sequencer_enabled &&
+        sequence_auto_advance &&
+        should_exit_current_activity(sim2fsw_bus)) {
+        transition_to_next_activity();
     }
 }
 

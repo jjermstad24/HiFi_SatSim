@@ -6,12 +6,26 @@ static constexpr double G0 = 9.80665;
 
 RCSThruster::RCSThruster()
 {
+    thrust_vac = 0.0;
+    Isp = 0.0;
+    chamber_pressure_nom = 0.0;
+    valve_tau = 0.0;
+    pressure_tau = 0.0;
+    ignition_delay = 0.0;
+    shutdown_delay = 0.0;
+    min_on_time = 0.0;
+
+    position[0] = position[1] = position[2] = 0.0;
+    direction[0] = direction[1] = direction[2] = 0.0;
+
     valve_position = 0.0;
     chamber_pressure = 0.0;
 
     is_on = false;
     on_timer = 0.0;
     off_timer = 0.0;
+    cmd = 0.0;
+    mass_flow = 0.0;
 
     force_body[0] = force_body[1] = force_body[2] = 0.0;
     torque_body[0] = torque_body[1] = torque_body[2] = 0.0;
@@ -21,6 +35,11 @@ void RCSThruster::initialize()
 {
     valve_position = 0.0;
     chamber_pressure = 0.0;
+    is_on = false;
+    on_timer = 0.0;
+    off_timer = 0.0;
+    cmd = 0.0;
+    mass_flow = 0.0;
 
     force_body[0] = force_body[1] = force_body[2] = 0.0;
     torque_body[0] = torque_body[1] = torque_body[2] = 0.0;

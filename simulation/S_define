@@ -67,7 +67,11 @@
 VehicleSimObject vehicle (dynamics.dyn_manager);
 
 #include "S_modules/target.sm"
-GroundTargetSimObject target (earth.planet);
+GroundTargetSimObject target1 (earth.planet);
+GroundTargetSimObject target2 (earth.planet);
+GroundTargetSimObject target3 (earth.planet);
+GroundTargetSimObject target4 (earth.planet);
+GroundTargetSimObject target5 (earth.planet);
 
 // Set the integration
 IntegLoop sim_integ_loop (DYNAMICS) dynamics, earth;

@@ -28,12 +28,12 @@ target.alt = 0
 
 vehicle.load_config('/home/jjermsta/SimulationFramework/simulation/Modified_data/vehicle_config.json')
 
-# --- GNC: IDLE Mode (to start with) ---
-vehicle.fsw.guidance.mode = 0 # IDLE
+# --- FSW Activity Sequencer ---
+# Start from DETUMBLE (deployment tip-off damping), then continue.
+vehicle.fsw.sequencer_enabled = True
+vehicle.fsw.sequence_auto_advance = True
+vehicle.fsw.set_activity(0) # FSW_ACTIVITY_DETUMBLE
 vehicle.fsw.guidance.target_frame = 0
-
-# --- FSW Control Mode: RCS ONLY to handle deployment rates ---
-vehicle.fsw.control_mode = 1 # RCS_ONLY
 
 trick.sim_services.exec_set_terminate_time(500.0)
 
@@ -41,4 +41,4 @@ exec(open("Log_data/log_run_test.py").read())
 setup_run_test_logging(0.025)
 
 for i in range(3):
-    vehicle.fsw.guidance.target_pos[i] = target.pos_inertial[i]
+    vehicle.fsw.guidance.target_pos[i] = trick.attach_units("m", target.pos_inertial[i])

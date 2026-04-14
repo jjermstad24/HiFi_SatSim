@@ -20,17 +20,69 @@ Library dependencies:
 
 namespace gnc {
 
+enum FswActivity : int {
+    FSW_ACTIVITY_DETUMBLE = 0,
+    FSW_ACTIVITY_POINTING = 1,
+    FSW_ACTIVITY_SLEW = 2,
+    FSW_ACTIVITY_STATIONKEEP = 3,
+    FSW_ACTIVITY_COUNT = 4
+};
+
+enum ActivitySignal : int {
+    ACTIVITY_SIGNAL_BODY_RATE_MAG = 0,
+    ACTIVITY_SIGNAL_BODY_RATE_X_ABS = 1,
+    ACTIVITY_SIGNAL_BODY_RATE_Y_ABS = 2,
+    ACTIVITY_SIGNAL_BODY_RATE_Z_ABS = 3,
+    ACTIVITY_SIGNAL_ELAPSED_TIME = 4
+};
+
+enum ActivityComparator : int {
+    ACTIVITY_CMP_LT = 0,
+    ACTIVITY_CMP_LE = 1,
+    ACTIVITY_CMP_GT = 2,
+    ACTIVITY_CMP_GE = 3
+};
+
+struct ActivityCondition {
+    ActivitySignal signal; //!< trick_units(--)
+    ActivityComparator cmp; //!< trick_units(--)
+    double threshold; //!< trick_units(--)
+};
+
+struct ActivityCriteriaGroup {
+    static const int max_conditions = 8;
+    ActivityCondition conditions[max_conditions]; //!< trick_units(--)
+    int num_conditions; //!< trick_units(--)
+};
+
+struct ActivityConfig {
+    static const int max_exit_groups = 4;
+    GuidanceMode guidance_mode; //!< trick_units(--)
+    ActuatorControlMode control_mode; //!< trick_units(--)
+    double kp; //!< trick_units(--)
+    double kd; //!< trick_units(--)
+    ActivityCriteriaGroup exit_groups[max_exit_groups]; //!< trick_units(--)
+    int num_exit_groups; //!< trick_units(--)
+};
+
 class Fsw {
 public:
-    Guidance guidance;
-    Control control;
-    Allocator allocator;
+    Guidance guidance; //!< trick_units(--)
+    Control control; //!< trick_units(--)
+    Allocator allocator; //!< trick_units(--)
 
-    Magnetorquer magnetorquer; // Physical model, but initialized and potentially updated internally by FSW
-    RCSCluster rcs_cluster;    // Physical model, but initialized and potentially updated internally by FSW
-    RWCluster rw_cluster;      // Physical model, but initialized and potentially updated internally by FSW
+    Magnetorquer magnetorquer; //!< trick_units(--) // Physical model, but initialized and potentially updated internally by FSW
+    RCSCluster rcs_cluster;    //!< trick_units(--) // Physical model, but initialized and potentially updated internally by FSW
+    RWCluster rw_cluster;      //!< trick_units(--) // Physical model, but initialized and potentially updated internally by FSW
 
-    ActuatorControlMode control_mode;
+    ActuatorControlMode control_mode; //!< trick_units(--)
+
+    // Activity sequencer
+    ActivityConfig activities[FSW_ACTIVITY_COUNT]; //!< trick_units(--)
+    int current_activity; //!< trick_units(--)
+    bool sequencer_enabled; //!< trick_units(--)
+    bool sequence_auto_advance; //!< trick_units(--)
+    double activity_elapsed_s; //!< trick_units(s)
 
     Fsw(); // Constructor
 
@@ -42,6 +94,20 @@ public:
 
     /** Initialize FSW components (magnetorquer, rcs, rw clusters) */
     void initialize();
+
+    /** Apply a specific activity index [0, FSW_ACTIVITY_COUNT). */
+    void set_activity(int activity_idx);
+
+    /** Move to next activity; wraps at final activity. */
+    void transition_to_next_activity();
+
+    /** Number of available sequencer activities. */
+    static int activity_count();
+
+private:
+    bool evaluate_activity_condition(const ActivityCondition& c,
+                                     const Sim2FswBus& sim2fsw_bus) const;
+    bool should_exit_current_activity(const Sim2FswBus& sim2fsw_bus) const;
 };
 
 } // namespace gnc

@@ -9,9 +9,9 @@
         "type": "cppdbg",
         "request": "launch",
         "program": "${workspaceFolder}/simulation/S_main_Linux_13.3_x86_64.exe",
-        "stopAtEntry": true,
+        "stopAtEntry": false,
         "args": [
-            "${workspaceFolder}/simulation/RUN_test/input.py",
+            "${workspaceFolder}/simulation/RUN_detumbling/input.py",
         ],
         "cwd": "${workspaceFolder}/simulation",
         "MIMode": "gdb",

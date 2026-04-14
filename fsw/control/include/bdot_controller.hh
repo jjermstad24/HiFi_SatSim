@@ -16,7 +16,7 @@ public:
     BDotController(double gain);
     void compute(const double B[3], const double B_prev[3], double dt, double dipole[3]);
 private:
-    double k_;
+    double k_; //!< trick_units(--)
 };
 
 }

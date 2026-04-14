@@ -17,7 +17,8 @@ public:
     void compute(const State&, const AttitudeCommand&, double torque[3]);
 
 private:
-    double kp_, kd_;
+    double kp_; //!< trick_units(--)
+    double kd_; //!< trick_units(--)
 };
 
 }
