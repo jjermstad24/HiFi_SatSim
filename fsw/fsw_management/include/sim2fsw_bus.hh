@@ -14,6 +14,11 @@ struct Sim2FswBus {
     // Environment
     double B_body[3];       //!< trick_units(T) Magnetic field in Body frame (T)
 
+    // Targets
+    static constexpr int max_targets = 10;
+    int num_targets; //!< trick_units(--)
+    double target_eci[max_targets][3]; //!< trick_units(m)
+
     // Time (if needed by FSW internally)
     double sim_time;        //!< trick_units(s)
     double fsw_dt;          //!< trick_units(s) FSW timestep

@@ -11,6 +11,7 @@ Library dependencies:
 #include "control/include/control.hh"
 #include "control/include/allocator.hh"
 #include "guidance/include/guidance.hh"
+#include "guidance/include/targeting.hh"
 #include "actuators/magnetorquer/include/magnetorquer.hh"
 #include "actuators/rcs/include/rcs_cluster.hh"
 #include "actuators/reaction_wheel/include/rw_cluster.hh"
@@ -68,6 +69,7 @@ struct ActivityConfig {
 class Fsw {
 public:
     Guidance guidance; //!< trick_units(--)
+    TargetingAlgorithm targeting; //!< trick_units(--)
     Control control; //!< trick_units(--)
     Allocator allocator; //!< trick_units(--)
 
@@ -91,6 +93,13 @@ public:
      * Takes inputs from sim, computes commands, and populates outputs to sim.
      */
     void update(const Sim2FswBus& sim2fsw_bus, Fsw2SimBus& fsw2sim_bus);
+
+    /**
+     * Run targeting algorithm: compute az/el for all known targets, select
+     * the best un-imaged target, set guidance.target_pos, and accumulate
+     * imaging dwell.  Called once per FSW tick from update().
+     */
+    void run_targeting(const Sim2FswBus& sim2fsw_bus);
 
     /** Initialize FSW components (magnetorquer, rcs, rw clusters) */
     void initialize();

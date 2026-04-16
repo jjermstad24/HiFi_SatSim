@@ -1,6 +1,7 @@
 #include "../include/fsw.hh"
 
 #include <cstring> // For std::memcpy, std::memset
+#include <cstdio>
 #include <cmath>
 
 namespace gnc {
@@ -242,6 +243,62 @@ void Fsw::transition_to_next_activity()
     set_activity(next);
 }
 
+// ---------------------------------------------------------------------------
+// run_targeting
+//
+// Called every FSW tick.  Responsibilities:
+//  1. Compute LVLH az/el for every target on the bus.
+//  2. Select the best un-imaged, visible target.
+//  3. Populate guidance.target_pos with the ECI position of that target.
+//  4. Accumulate imaging dwell; mark bin complete when dwell is satisfied.
+//  5. If the current target becomes unselected (set changed), reset dwell.
+// ---------------------------------------------------------------------------
+void Fsw::run_targeting(const Sim2FswBus& sim2fsw_bus)
+{
+    // -- 1. Compute az/el --------------------------------------------------
+    targeting.compute_azel(sim2fsw_bus.r_eci,
+                           sim2fsw_bus.v_eci,
+                           sim2fsw_bus.target_eci,
+                           sim2fsw_bus.num_targets);
+
+    // -- 2. Select best target ---------------------------------------------
+    int new_sel = targeting.select_target(sim2fsw_bus.num_targets);
+
+    // Detect a switch in target selection and reset dwell accordingly.
+    if (new_sel != targeting.selected_target_idx) {
+        if (targeting.selected_target_idx >= 0) {
+            std::printf("[Targeting] Switch target %d -> %d  (dwell reset)\n",
+                        targeting.selected_target_idx, new_sel);
+        }
+        targeting.selected_target_idx = new_sel;
+        targeting.current_dwell_s     = 0.0;
+        targeting.dwelling            = (new_sel >= 0);
+    }
+
+    // -- 3. Populate guidance.target_pos -----------------------------------
+    if (new_sel >= 0 && new_sel < sim2fsw_bus.num_targets) {
+        guidance.target_pos[0] = sim2fsw_bus.target_eci[new_sel][0];
+        guidance.target_pos[1] = sim2fsw_bus.target_eci[new_sel][1];
+        guidance.target_pos[2] = sim2fsw_bus.target_eci[new_sel][2];
+        guidance.target_frame  = INERTIAL;
+
+        // Remember which az/el bin this corresponds to.
+        targeting.selected_az_bin =
+            static_cast<int>(targeting.target_azel[new_sel].az_deg / AZ_STEP);
+        targeting.selected_el_bin =
+            static_cast<int>(targeting.target_azel[new_sel].el_deg / EL_STEP);
+
+        // -- 4. Accumulate dwell and mark bin when complete ----------------
+        bool just_imaged = targeting.update_dwell(sim2fsw_bus.fsw_dt);
+        if (just_imaged) {
+            std::printf("[Targeting] Target %d imaged  az=%.1f deg  el=%.1f deg\n",
+                        new_sel,
+                        targeting.target_azel[new_sel].az_deg,
+                        targeting.target_azel[new_sel].el_deg);
+        }
+    }
+}
+
 void Fsw::update(const Sim2FswBus& sim2fsw_bus, Fsw2SimBus& fsw2sim_bus) {
     if (sequencer_enabled &&
         current_activity >= 0 &&
@@ -258,6 +315,13 @@ void Fsw::update(const Sim2FswBus& sim2fsw_bus, Fsw2SimBus& fsw2sim_bus) {
         guidance.sc_pos_eci[i] = sim2fsw_bus.r_eci[i];
         guidance.sc_vel_eci[i] = sim2fsw_bus.v_eci[i];
         guidance.sc_omega_body[i] = sim2fsw_bus.w_body[i];
+    }
+
+    // --- TARGETING ALGORITHM (runs when in TARGET mode) ---
+    // Compute az/el of all targets, select best un-imaged target, and
+    // populate guidance.target_pos automatically every tick.
+    if (guidance.mode == TARGET && sim2fsw_bus.num_targets > 0) {
+        run_targeting(sim2fsw_bus);
     }
 
     // GuidanceMode: IDLE, TARGET, SLEW, STATIONKEEP, RCS_MANEUVER

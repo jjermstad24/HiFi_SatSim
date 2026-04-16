@@ -17,24 +17,26 @@ exec(open("Modified_data/vehicle_mass_props.py", "r").read())
 exec(open("Modified_data/vehicle_grav_controls.py", "r").read())
 exec(open("Modified_data/vehicle_state.py", "r").read())
 
-import numpy as np
-
-target.lon = np.deg2rad(-70)
-target.lat = np.deg2rad(30)
-target.alt = 0
+exec(open("Modified_data/targets.py", "r").read())
 
 vehicle.load_config('/home/jjermsta/SimulationFramework/simulation/Modified_data/vehicle_config.json')
 
-# --- FSW Activity Sequencer ---
-# Start at POINTING for nominal tracking and continue.
+# ---------------------------------------------------------------------------
+# FSW configuration
+# ---------------------------------------------------------------------------
+# Start in TARGET mode so the targeting algorithm runs from the first tick.
 vehicle.fsw.sequencer_enabled = True
-vehicle.fsw.sequence_auto_advance = True
-vehicle.fsw.set_activity(1) # FSW_ACTIVITY_POINTING
+vehicle.fsw.sequence_auto_advance = False       # targeting algo manages selection
+vehicle.fsw.set_activity(1)                     # FSW_ACTIVITY_POINTING (TARGET mode)
 
-trick.sim_services.exec_set_terminate_time(2000.0)
+# Override targeting algorithm defaults set in targets.py if desired:
+# vehicle.fsw.targeting.image_dwell_time_s = 60.0
+# vehicle.fsw.targeting.min_elevation_deg  = 10.0
+
+# ---------------------------------------------------------------------------
+# Simulation stop time: ~60 minutes to observe several orbital passes
+# ---------------------------------------------------------------------------
+trick.sim_services.exec_set_terminate_time(3600.0)
 
 exec(open("Log_data/log_run_test.py").read())
 setup_run_test_logging(0.025)
-
-for i in range(3):
-    vehicle.fsw.guidance.target_pos[i] = trick.attach_units("m", target.pos_inertial[i])

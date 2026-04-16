@@ -32,6 +32,7 @@ Purpose:( This sim object models a very basic vehicle.)
 ##include "fsw_management/include/sim2fsw_bus.hh"
 ##include "fsw_management/include/fsw2sim_bus.hh"
 ##include "fsw_management/include/fsw.hh"
+##include "fsw_management/include/ground_target_data.hh"
 
 class VehicleSimObject : public Trick::SimObject
 {
@@ -43,6 +44,21 @@ public:
     // Core vehicle
     //----------------------------------------
     jeod::DynBody dyn_body;
+
+    //----------------------------------------
+    // Targets – pointers to ground target state objects registered via
+    // add_target() from the Python input file.
+    //----------------------------------------
+    static const int MAX_TRACKED_TARGETS = 10;
+    int num_tracked_targets = 0;
+    GroundTargetData* tracked_targets[MAX_TRACKED_TARGETS];
+
+    /** Call from the Python input file for each target object. */
+    void add_target(GroundTargetData* tgt) {
+        if (num_tracked_targets < MAX_TRACKED_TARGETS) {
+            tracked_targets[num_tracked_targets++] = tgt;
+        }
+    }
 
     //----------------------------------------
     // Gravity
@@ -191,7 +207,7 @@ public:
     // Constructor
     //----------------------------------------
     VehicleSimObject(jeod::DynManager & dyn_mngr_in)
-        : dyn_manager(dyn_mngr_in)
+        : dyn_manager(dyn_mngr_in), num_tracked_targets(0)
     {
         //----------------------------------------
         // Dyn body init
@@ -273,6 +289,17 @@ private:
         sim2fsw_bus.w_body[i] = w_body[i];
         sim2fsw_bus.B_body[i] = B_body[i];
     }
+    
+    sim2fsw_bus.num_targets = 0;
+    for (int i = 0; i < num_tracked_targets; i++) {
+        if (tracked_targets[i] && i < gnc::Sim2FswBus::max_targets) {
+            sim2fsw_bus.target_eci[i][0] = tracked_targets[i]->pos_inertial[0];
+            sim2fsw_bus.target_eci[i][1] = tracked_targets[i]->pos_inertial[1];
+            sim2fsw_bus.target_eci[i][2] = tracked_targets[i]->pos_inertial[2];
+            sim2fsw_bus.num_targets++;
+        }
+    }
+
     dyn_body.composite_body.state.rot.Q_parent_this.conjugate(sim2fsw_bus.q_eci_to_body);
     sim2fsw_bus.sim_time = exec_get_sim_time();
     sim2fsw_bus.fsw_dt = FSW_DT;

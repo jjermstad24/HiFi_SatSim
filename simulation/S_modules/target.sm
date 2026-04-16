@@ -1,17 +1,13 @@
 ##include "environment/planet/include/planet.hh"
 ##include "utils/planet_fixed/planet_fixed_posn/include/planet_fixed_posn.hh"
+##include "fsw_management/include/ground_target_data.hh"
 
-class GroundTargetSimObject : public Trick::SimObject
+#ifndef GROUND_TARGET_SIM_OBJECT_HH
+#define GROUND_TARGET_SIM_OBJECT_HH
+
+class GroundTargetSimObject : public Trick::SimObject, public GroundTargetData
 {
 public:
-    // Input (radians, meters)
-    double lat;
-    double lon;
-    double alt;
-
-    // Output
-    double pos_inertial[3];
-
     jeod::PlanetFixedPosition pfix;
 
     GroundTargetSimObject(jeod::Planet & earth_in)
@@ -57,3 +53,5 @@ public:
 private:
     jeod::Planet & earth;
 };
+
+#endif // GROUND_TARGET_SIM_OBJECT_HH

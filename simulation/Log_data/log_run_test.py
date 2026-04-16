@@ -9,10 +9,21 @@ def setup_run_test_logging(log_cycle=1):
     dr_group.thisown = 0
     dr_group.set_cycle(log_cycle)
     dr_group.freq = trick.sim_services.DR_Always
+    for t in range(1,6):
+        for i in range(3):
+            dr_group.add_variable(
+                "target%d.pos_inertial[%d]" % (t, i), "target%d.r_inertial[%d]" % (t, i)
+            )
+    trick.add_data_record_group(dr_group)
+
+    dr_group = trick.sim_services.DRAscii("fsw")
+    dr_group.thisown = 0
+    dr_group.set_cycle(log_cycle)
+    dr_group.freq = trick.sim_services.DR_Always
+    dr_group.add_variable("vehicle.fsw.current_activity")
+    dr_group.add_variable("vehicle.fsw.targeting.selected_target_idx")
     for i in range(3):
-        dr_group.add_variable(
-            "target.pos_inertial[%d]" % i, "target.r_inertial[%d]" % i
-        )
+        dr_group.add_variable(f'vehicle.sim2fsw_bus.w_body[{i}]')
     trick.add_data_record_group(dr_group)
 
     dr_group = trick.sim_services.DRAscii("vehicle")

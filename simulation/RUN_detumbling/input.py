@@ -22,18 +22,14 @@ exec(open("Modified_data/vehicle_state.py", "r").read())
 # RCS commands exceed the thruster on-threshold and jets visibly fire.
 vehicle.rot_init.ang_velocity = [0.2, -0.1, 0.05]
 
-import numpy as np
-
-target.lon = np.deg2rad(-70)
-target.lat = np.deg2rad(30)
-target.alt = 0
+exec(open("Modified_data/targets.py", "r").read())
 
 vehicle.load_config('/home/jjermsta/SimulationFramework/simulation/Modified_data/vehicle_config.json')
 
 # --- FSW Activity Sequencer ---
 # Start from DETUMBLE and continue through remaining activities.
-vehicle.fsw.sequencer_enabled = True
-vehicle.fsw.sequence_auto_advance = True
+# vehicle.fsw.sequencer_enabled = True
+# vehicle.fsw.sequence_auto_advance = True
 vehicle.fsw.set_activity(0) # FSW_ACTIVITY_DETUMBLE
 
 trick.sim_services.exec_set_terminate_time(300.0)
@@ -41,5 +37,3 @@ trick.sim_services.exec_set_terminate_time(300.0)
 exec(open("Log_data/log_run_test.py").read())
 setup_run_test_logging(0.025)
 
-for i in range(3):
-    vehicle.fsw.guidance.target_pos[i] = trick.attach_units("m",target.pos_inertial[i])
