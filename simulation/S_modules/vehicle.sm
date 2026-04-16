@@ -25,6 +25,8 @@ Purpose:( This sim object models a very basic vehicle.)
 ##include "environment/gravity/include/gravity_manager.hh"
 ##include "environment/earth_magnetic_field/include/earth_magnetic_field.hh"
 
+##include "sensors/sar/include/sar.hh"
+
 ##include "guidance/include/guidance.hh"
 ##include "control/include/gnc_mode.hh"
 ##include "control/include/control.hh"
@@ -94,6 +96,11 @@ public:
     gnc::Magnetorquer magnetorquer;
     gnc::RCSCluster rcs_cluster;
     gnc::RWCluster rw_cluster;
+
+    //----------------------------------------
+    // SENSORS
+    //----------------------------------------
+    gnc::SAR sar;
 
     //----------------------------------------
     // GNC
@@ -227,11 +234,12 @@ public:
         fsw_substep = 0;
 
         //----------------------------------------
-        // ACTUATOR UPDATE (physics, 200 Hz; holds FSW commands between updates)
+        // ACTUATOR / SENSOR UPDATE (physics, 200 Hz; holds FSW commands between updates)
         //----------------------------------------
         magnetorquer.update(DYNAMICS);
         rw_cluster.update(DYNAMICS);
         rcs_cluster.update(DYNAMICS);
+        sar.initialize();
         P_DYN(DYNAMICS, "environment") update();
     }
 
@@ -251,6 +259,17 @@ private:
     pfix.update();
     lvlh.update();
     euler_rpy.update();
+
+    //----------------------------------------
+    // SAR Update
+    //----------------------------------------
+    double T_lvlh_to_ecef[3][3];
+    for(int i=0; i<3; ++i) {
+        for(int j=0; j<3; ++j) {
+            T_lvlh_to_ecef[i][j] = lvlh.lvlh_frame.state.rot.T_parent_this[j][i];
+        }
+    }
+    sar.update(pfix.state.cart_coords, T_lvlh_to_ecef, pfix.planet);
 
     //----------------------------------------
     // ================================

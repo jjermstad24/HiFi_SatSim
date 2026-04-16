@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+#include <iostream>
 
 namespace gnc {
 
@@ -139,30 +140,44 @@ void TargetingAlgorithm::compute_azel(const double sc_pos_eci[3],
             target_azel[i].visible = false;
             continue;
         }
-        los_eci[0] /= los_mag;
-        los_eci[1] /= los_mag;
-        los_eci[2] /= los_mag;
+        // --- Target-Centric Elevation ---
+        // Normal at target (assuming spherical Earth)
+        double r_tgt_mag = std::sqrt(target_eci[i][0]*target_eci[i][0] +
+                                     target_eci[i][1]*target_eci[i][1] +
+                                     target_eci[i][2]*target_eci[i][2]);
+        if (r_tgt_mag < 1.0) continue;
+        
+        double n_tgt[3] = { target_eci[i][0] / r_tgt_mag,
+                             target_eci[i][1] / r_tgt_mag,
+                             target_eci[i][2] / r_tgt_mag };
+        
+        // Vector from target to spacecraft (unit vector)
+        double v_tgt2sc[3] = { -los_eci[0] / los_mag,
+                                -los_eci[1] / los_mag,
+                                -los_eci[2] / los_mag };
+        
+        double sin_el = n_tgt[0]*v_tgt2sc[0] + n_tgt[1]*v_tgt2sc[1] + n_tgt[2]*v_tgt2sc[2];
+        if (sin_el > 1.0) sin_el = 1.0;
+        if (sin_el < -1.0) sin_el = -1.0;
+        double el_deg = std::asin(sin_el) * DEG;
 
-        // Project onto LVLH axes
-        double lx = x_lvlh[0]*los_eci[0] + x_lvlh[1]*los_eci[1] + x_lvlh[2]*los_eci[2];
-        double ly = y_lvlh[0]*los_eci[0] + y_lvlh[1]*los_eci[1] + y_lvlh[2]*los_eci[2];
-        double lz = z_lvlh[0]*los_eci[0] + z_lvlh[1]*los_eci[1] + z_lvlh[2]*los_eci[2];
+        // --- Azimuth (Remains in Satellite LVLH frame for binning) ---
+        // Normalize LOS for projection
+        double lu_eci[3] = { los_eci[0] / los_mag, los_eci[1] / los_mag, los_eci[2] / los_mag };
+        double lx = x_lvlh[0]*lu_eci[0] + x_lvlh[1]*lu_eci[1] + x_lvlh[2]*lu_eci[2];
+        double ly = y_lvlh[0]*lu_eci[0] + y_lvlh[1]*lu_eci[1] + y_lvlh[2]*lu_eci[2];
 
-        // Clamp for asin
-        if (lz >  1.0) lz =  1.0;
-        if (lz < -1.0) lz = -1.0;
-
-        // Elevation: angle from the LVLH x-y plane toward nadir (-z).
-        // A target directly at nadir has lz = -1  →  el = 90°.
-        double el_deg = std::asin(-lz) * DEG;
-
-        // Azimuth: angle in the x-y plane from +x (ram), measured right-hand.
         double az_deg = std::atan2(ly, lx) * DEG;
         if (az_deg < 0.0) az_deg += 360.0;
 
         target_azel[i].az_deg  = az_deg;
         target_azel[i].el_deg  = el_deg;
-        target_azel[i].visible = (el_deg >= min_elevation_deg);
+        
+        // Visibility: Must be above minimum elevation AND have line-of-sight to target
+        bool above_horizon = (el_deg >= min_elevation_deg);
+        bool los_clear = !is_obstructed(sc_pos_eci, target_eci[i]);
+        
+        target_azel[i].visible = above_horizon && los_clear;
     }
 }
 
@@ -181,11 +196,21 @@ int TargetingAlgorithm::select_target(int num_targets)
 {
     if (coverage_complete) return -1;
 
+    int clamped = (num_targets < max_targets) ? num_targets : max_targets;
+
+    // -- Hysteresis Check -------------------------------------------------
+    // If we're already tracking a target that's still visible and unimaged,
+    // stay on it to prevent chattering between similar elevation targets.
+    if (selected_target_idx >= 0 && selected_target_idx < clamped) {
+        const TargetAzEl& cur_ta = target_azel[selected_target_idx];
+        if (cur_ta.visible && !is_bin_imaged(cur_ta.az_deg, cur_ta.el_deg)) {
+            return selected_target_idx;
+        }
+    }
+
     int    best_idx      = -1;
     bool   best_unimaged =  false;
     double best_el       = -1e30;
-
-    int clamped = (num_targets < max_targets) ? num_targets : max_targets;
 
     for (int i = 0; i < clamped; i++) {
         const TargetAzEl& ta = target_azel[i];
@@ -266,6 +291,47 @@ void TargetingAlgorithm::mark_imaged(int target_idx)
         std::printf("[Targeting] *** FULL COVERAGE ACHIEVED (%d/%d bins) ***\n",
                     bins_imaged, total_bins);
     }
+}
+
+// ---------------------------------------------------------------------------
+// is_obstructed
+//
+// Logic: Calculate distance from Earth center to LOS segment.
+// ---------------------------------------------------------------------------
+bool TargetingAlgorithm::is_obstructed(const double sc_pos_eci[3], 
+                                       const double target_eci[3]) const
+{
+    // Vector sc to target
+    double d[3] = { target_eci[0] - sc_pos_eci[0],
+                     target_eci[1] - sc_pos_eci[1],
+                     target_eci[2] - sc_pos_eci[2] };
+    double d_mag2 = d[0]*d[0] + d[1]*d[1] + d[2]*d[2];
+    double d_mag = std::sqrt(d_mag2);
+    
+    if (d_mag < 1.0) return false; // At target
+    
+    double u[3] = { d[0]/d_mag, d[1]/d_mag, d[2]/d_mag };
+    
+    // Projection of sc_pos onto LOS
+    // Closest point t = -sc_pos dot u 
+    double t = -(sc_pos_eci[0]*u[0] + sc_pos_eci[1]*u[1] + sc_pos_eci[2]*u[2]);
+    
+    // If closest point is on the segment (sc to target)
+    if (t > 0.0 && t < d_mag) {
+        double closest[3] = { sc_pos_eci[0] + t*u[0],
+                               sc_pos_eci[1] + t*u[1],
+                               sc_pos_eci[2] + t*u[2] };
+        double r2 = closest[0]*closest[0] + closest[1]*closest[1] + closest[2]*closest[2];
+        
+        // Use a slightly smaller threshold offset to avoid grazing surface targets
+        // marking themselves invisible due to precision.
+        constexpr double EPS = 1.0; 
+        if (std::sqrt(r2) < (EARTH_RADIUS_M - EPS)) {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 } // namespace gnc

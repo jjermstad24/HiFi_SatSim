@@ -36,7 +36,7 @@ vehicle.fsw.set_activity(1)                     # FSW_ACTIVITY_POINTING (TARGET 
 # ---------------------------------------------------------------------------
 # Simulation stop time: ~60 minutes to observe several orbital passes
 # ---------------------------------------------------------------------------
-trick.sim_services.exec_set_terminate_time(100.0)
+trick.sim_services.exec_set_terminate_time(10000.0)
 
 exec(open("Log_data/log_run_test.py").read())
 # setup_run_test_logging(0.025)
@@ -63,6 +63,13 @@ for i in range(3):
 for i in range(3):
     for j in range(3):
         data_logger.add_variable(f"vehicle.dyn_body.core_body.state.rot.T_parent_this[{i}][{j}]")
+
+# SAR Sensor
+data_logger.add_variable("vehicle.sar.footprint_valid")
+for i in range(4):
+    for j in range(3):
+        data_logger.add_variable(f"vehicle.sar.footprint_ecef[{i}][{j}]")
+
 
 # Actuators
 for i in range(3):

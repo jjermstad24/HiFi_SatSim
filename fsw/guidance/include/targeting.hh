@@ -126,6 +126,13 @@ public:
     bool is_bin_imaged(double az_deg, double el_deg) const;
 
 private:
+    static constexpr double EARTH_RADIUS_M = 6378137.0;
+
+    /**
+     * Check if the line-of-sight from spacecraft to target is obstructed by Earth.
+     */
+    bool is_obstructed(const double sc_pos_eci[3], const double target_eci[3]) const;
+
     /** Convert az/el degrees to bin indices; returns false if out of range. */
     static bool to_bin(double az_deg, double el_deg, int& az_idx, int& el_idx);
 };

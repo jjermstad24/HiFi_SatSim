@@ -1,8 +1,8 @@
 vehicle.trans_init.set_subject_body(vehicle.dyn_body)
 vehicle.trans_init.reference_ref_frame_name = "Earth.inertial"
 vehicle.trans_init.body_frame_id            = "composite_body"
-vehicle.trans_init.position                 = [7400000.0, 0.0, 0.0]
-vehicle.trans_init.velocity                 = [0.0 , 7300.0 , 758.0]
+vehicle.trans_init.position                 = [2191880.0, -6022135.0, 3700000.0]
+vehicle.trans_init.velocity                 = [6843.0, 2510.0, 758.0]
 
 vehicle.rot_init.set_subject_body(vehicle.dyn_body)
 vehicle.rot_init.reference_ref_frame_name = "Earth.inertial"
