@@ -3,6 +3,7 @@
 #include <arrow/api.h>
 #include <arrow/io/api.h>
 #include <parquet/arrow/writer.h>
+#include <parquet/properties.h>
 #include <arrow/csv/api.h>
 #include "trick/parameter_types.h"
 
@@ -81,6 +82,10 @@ void DataLogger::write_to_file(const std::string& filename, Format format) {
 
     std::vector<std::shared_ptr<arrow::Array>> arrays;
     std::vector<std::shared_ptr<arrow::Field>> fields;
+    
+    // Preparation for Schema Metadata (Global)
+    std::vector<std::string> meta_keys;
+    std::vector<std::string> meta_values;
 
     // Time column
     std::shared_ptr<arrow::Array> time_array;
@@ -88,6 +93,8 @@ void DataLogger::write_to_file(const std::string& filename, Format format) {
     arrays.push_back(time_array);
     auto time_meta = arrow::key_value_metadata({"units"}, {"s"});
     fields.push_back(arrow::field("sim_time", arrow::float64(), time_meta));
+    meta_keys.push_back("sim_time_units");
+    meta_values.push_back("s");
 
     // Variable columns
     for (size_t i = 0; i < variables.size(); ++i) {
@@ -95,15 +102,17 @@ void DataLogger::write_to_file(const std::string& filename, Format format) {
         (void)(*builders)[i]->Finish(&var_array);
         arrays.push_back(var_array);
         
-        // Add units metadata if present
         std::shared_ptr<arrow::KeyValueMetadata> metadata = nullptr;
         if (!variables[i].units.empty()) {
             metadata = arrow::key_value_metadata({"units"}, {variables[i].units});
+            meta_keys.push_back(variables[i].name + "_units");
+            meta_values.push_back(variables[i].units);
         }
         fields.push_back(arrow::field(variables[i].name, arrow::float64(), metadata));
     }
 
-    auto schema = std::make_shared<arrow::Schema>(fields);
+    auto schema_metadata = std::make_shared<arrow::KeyValueMetadata>(meta_keys, meta_values);
+    auto schema = std::make_shared<arrow::Schema>(fields, schema_metadata);
     auto table = arrow::Table::Make(schema, arrays);
 
     if (format == PARQUET_FORMAT) {
@@ -113,7 +122,13 @@ void DataLogger::write_to_file(const std::string& filename, Format format) {
             return;
         }
         auto outfile = open_res.ValueOrDie();
-        auto status = parquet::arrow::WriteTable(*table, arrow::default_memory_pool(), outfile, table->num_rows());
+        
+        // Use ArrowWriterProperties to ensure schema is stored
+        // Note: ArrowWriterProperties is in the 'parquet' namespace, NOT 'parquet::arrow'.
+        auto arrow_props = parquet::ArrowWriterProperties::Builder().store_schema()->build();
+        auto status = parquet::arrow::WriteTable(*table, arrow::default_memory_pool(), outfile, table->num_rows(), 
+                                                 parquet::default_writer_properties(), arrow_props);
+        
         if (status.ok()) {
             std::cout << "[DataLogger] Successfully wrote " << table->num_rows() << " rows to " << filename << " (Parquet)" << std::endl;
         } else {

@@ -55,7 +55,7 @@ public:
             std::string units = (ref->attr->units) ? ref->attr->units : "";
             logger.add_variable(std::string(name), ref->address, (int)ref->attr->type, units);
             std::cout << "[DataLogger] Registered: " << name << " (" << ref->attr->type_name 
-                      << ", units: " << (units.empty() ? "none" : units) << ") at " << ref->address << std::endl;
+                      << "), Units: [" << units << "] at " << ref->address << std::endl;
         } else {
             std::cerr << "[DataLogger] Warning: Could not find variable or attributes: " << name << std::endl;
         }
