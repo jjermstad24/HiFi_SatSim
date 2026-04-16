@@ -1,0 +1,82 @@
+#ifndef DATA_LOGGER_SM
+#define DATA_LOGGER_SM
+
+##include <string>
+##include <iostream>
+##include <cstring>
+##include "utils/logging/include/logger.hh"
+##include "trick/memorymanager_c_intf.h"
+##include "trick/command_line_protos.h"
+
+class DataLoggerSimObject : public Trick::SimObject
+{
+public:
+    char output_filename[256];
+    bool write_parquet_enabled;
+    bool write_csv_enabled;
+
+#ifndef TRICK_ICG
+    gnc::DataLogger logger;
+#endif
+
+    DataLoggerSimObject() {
+        std::strncpy(output_filename, "simulation_log", sizeof(output_filename));
+        write_parquet_enabled = true;
+        write_csv_enabled = false;
+        
+        P_DYN(0.025, "scheduled") update();
+        P_ENV("shutdown") shutdown();
+    }
+
+    // These must be visible to ICG so it can generate wrappers
+    int update() {
+#ifndef TRICK_ICG
+        logger.update(exec_get_sim_time());
+#endif
+        return 0;
+    }
+
+    int shutdown() {
+#ifndef TRICK_ICG
+        if (write_parquet_enabled) {
+            write_to_parquet(output_filename);
+        }
+        if (write_csv_enabled) {
+            write_to_csv(output_filename);
+        }
+#endif
+        return 0;
+    }
+
+    void add_variable(char* name) {
+#ifndef TRICK_ICG
+        REF2* ref = ref_attributes(name);
+        if (ref && ref->address && ref->attr) {
+            std::string units = (ref->attr->units) ? ref->attr->units : "";
+            logger.add_variable(std::string(name), ref->address, (int)ref->attr->type, units);
+            std::cout << "[DataLogger] Registered: " << name << " (" << ref->attr->type_name 
+                      << ", units: " << (units.empty() ? "none" : units) << ") at " << ref->address << std::endl;
+        } else {
+            std::cerr << "[DataLogger] Warning: Could not find variable or attributes: " << name << std::endl;
+        }
+#endif
+    }
+
+    void write_to_parquet(char* filename) {
+#ifndef TRICK_ICG
+        std::string fname = std::string(command_line_args_get_output_dir()) + "/" + filename;
+        if (fname.find(".parquet") == std::string::npos) fname += ".parquet";
+        logger.write_to_file(fname, gnc::DataLogger::PARQUET_FORMAT);
+#endif
+    }
+
+    void write_to_csv(char* filename) {
+#ifndef TRICK_ICG
+        std::string fname = std::string(command_line_args_get_output_dir()) + "/" + filename;
+        if (fname.find(".csv") == std::string::npos) fname += ".csv";
+        logger.write_to_file(fname, gnc::DataLogger::CSV_FORMAT);
+#endif
+    }
+};
+
+#endif

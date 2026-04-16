@@ -36,7 +36,84 @@ vehicle.fsw.set_activity(1)                     # FSW_ACTIVITY_POINTING (TARGET 
 # ---------------------------------------------------------------------------
 # Simulation stop time: ~60 minutes to observe several orbital passes
 # ---------------------------------------------------------------------------
-trick.sim_services.exec_set_terminate_time(3600.0)
+trick.sim_services.exec_set_terminate_time(100.0)
 
 exec(open("Log_data/log_run_test.py").read())
-setup_run_test_logging(0.025)
+# setup_run_test_logging(0.025)
+
+# ---------------------------------------------------------------------------
+# DataLogger configuration (Native Parquet/CSV)
+# ---------------------------------------------------------------------------
+# Target 1-5
+for t in range(1, 6):
+    for i in range(3):
+        data_logger.add_variable(f"target{t}.pos_inertial[{i}]")
+
+# FSW
+data_logger.add_variable("vehicle.fsw.current_activity")
+data_logger.add_variable("vehicle.fsw.targeting.selected_target_idx")
+for i in range(3):
+    data_logger.add_variable(f"vehicle.sim2fsw_bus.w_body[{i}]")
+    data_logger.add_variable(f"vehicle.sim2fsw_bus.B_body[{i}]")
+
+# Vehicle States
+for i in range(3):
+    data_logger.add_variable(f"vehicle.dyn_body.core_body.state.trans.position[{i}]")
+    data_logger.add_variable(f"vehicle.dyn_body.core_body.state.trans.velocity[{i}]")
+for i in range(3):
+    for j in range(3):
+        data_logger.add_variable(f"vehicle.dyn_body.core_body.state.rot.T_parent_this[{i}][{j}]")
+
+# Actuators
+for i in range(3):
+    data_logger.add_variable(f"vehicle.rcs_cluster.total_force[{i}]")
+    data_logger.add_variable(f"vehicle.rcs_cluster.total_torque[{i}]")
+    data_logger.add_variable(f"vehicle.rw_cluster.torque_body[{i}]")
+    data_logger.add_variable(f"vehicle.rw_cluster.total_momentum[{i}]")
+    data_logger.add_variable(f"vehicle.rw_cluster.wheels[{i}].omega")
+    data_logger.add_variable(f"vehicle.magnetorquer.torque_body[{i}]")
+    data_logger.add_variable(f"vehicle.magnetorquer.dipole_body[{i}]")
+
+# Planets (Earth, Moon)
+for planet in ["earth", "moon"]:
+    for i in range(3):
+        data_logger.add_variable(f"{planet}.planet.inertial.state.trans.position[{i}]")
+        data_logger.add_variable(f"{planet}.planet.inertial.state.trans.velocity[{i}]")
+    for i in range(3):
+        for j in range(3):
+            data_logger.add_variable(f"{planet}.planet.pfix.state.rot.T_parent_this[{i}][{j}]")
+
+# Guidance
+data_logger.add_variable("vehicle.fsw.guidance.mode")
+data_logger.add_variable("vehicle.fsw.guidance.target_frame")
+data_logger.add_variable("vehicle.fsw.guidance.slew_time")
+data_logger.add_variable("vehicle.fsw.guidance.slew_duration")
+for i in range(3):
+    data_logger.add_variable(f"vehicle.fsw.guidance.sc_pos_eci[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.sc_vel_eci[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.sc_omega_body[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.target_pos[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.out.r_desired[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.out.v_desired[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.out.w_desired[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.out.rcs_force_cmd_eci[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.out.rcs_torque_cmd_body[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.out.rw_torque_cmd_body[{i}]")
+    data_logger.add_variable(f"vehicle.fsw.guidance.out.mtq_dipole_cmd_body[{i}]")
+
+# Control
+data_logger.add_variable("vehicle.fsw.control.mode")
+for i in range(3):
+     data_logger.add_variable(f"vehicle.fsw.control.q_err.vector[{i}]")
+data_logger.add_variable("vehicle.fsw.control.q_err.scalar")
+
+# Orb Elem
+vars_orb = ["semi_major_axis", "semiparam", "e_mag", "inclination", "arg_periapsis", 
+            "long_asc_node", "r_mag", "vel_mag", "true_anom", "mean_motion", 
+            "orbital_anom", "orb_energy", "orb_ang_momentum"]
+for v in vars_orb:
+    data_logger.add_variable(f"vehicle.orb_elem.elements.{v}")
+
+# At the end of the simulation, write to parquet
+# Trick 10+ uses trick.add_event() or we can just use a trick job.
+# For now, let's just use a trick job defined in the SimObject for shutdown.

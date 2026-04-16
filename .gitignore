@@ -17,3 +17,4 @@ trick.zip
 makefile
 S_main*
 *.ipynb
+*.parquet

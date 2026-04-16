@@ -73,6 +73,9 @@ GroundTargetSimObject target3 (earth.planet);
 GroundTargetSimObject target4 (earth.planet);
 GroundTargetSimObject target5 (earth.planet);
 
+#include "S_modules/logger.sm"
+DataLoggerSimObject data_logger;
+
 // Set the integration
 IntegLoop sim_integ_loop (DYNAMICS) dynamics, earth;
 

@@ -1,0 +1,36 @@
+[34mBuilding with the following compilation flags:[0m
+TRICK_CFLAGS   = [36m-Wall -I/home/jjermsta/SimulationFramework/jeod/models[0m
+TRICK_CXXFLAGS = [36m-std=c++11 -Wall -I/home/jjermsta/SimulationFramework/jeod/models -O2 -DNDEBUG -I..//models -I..//fsw -I/home/jjermsta/SimulationFramework/trick/include -std=c++17[0m
+[34mCompiling[0m  /home/jjermsta/SimulationFramework/models/utils/logging/src/logger.cpp
+[34mSWIGing[0m    build/home/jjermsta/SimulationFramework/models/utils/logging/include/logger_py.i
+[34mSWIGing[0m    build/home/jjermsta/SimulationFramework/simulation/S_source_py.i
+[34mSWIGing[0m    build/top.i
+Building JPL DE4XX ephemeris files
+make[1]: Entering directory '/home/jjermsta/SimulationFramework/jeod'
+Building JEOD Library
+make -C /home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64 install
+make[2]: Entering directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+make[3]: Entering directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+make[4]: Entering directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+make[4]: Entering directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+make[4]: Entering directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+make[4]: Leaving directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+make[4]: Leaving directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+make[4]: Leaving directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+[  6%] Built target de421
+[ 31%] Built target de440
+[100%] Built target de405
+make[3]: Leaving directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+Install the project...
+/home/jjermsta/SimulationFramework/models/utils/logging/src/logger.cpp:6:10: fatal error: csv/csv.h: No such file or directory
+    6 | #include <csv/csv.h> // Mock or actual CSV library if used, but here we use Arrow
+      |          ^~~~~~~~~~~
+compilation terminated.
+make: *** [build/Makefile_src:261: build/home/jjermsta/SimulationFramework/models/utils/logging/src/logger.o] Error 1
+make: *** Waiting for unfinished jobs....
+-- Install configuration: "Debug"
+-- Up-to-date: /home/jjermsta/SimulationFramework/jeod/lib_jeod_Linux_13.3_x86_64/de4xx_lib/libde405.so
+-- Up-to-date: /home/jjermsta/SimulationFramework/jeod/lib_jeod_Linux_13.3_x86_64/de4xx_lib/libde421.so
+-- Up-to-date: /home/jjermsta/SimulationFramework/jeod/lib_jeod_Linux_13.3_x86_64/de4xx_lib/libde440.so
+make[2]: Leaving directory '/home/jjermsta/SimulationFramework/jeod/build_Linux_13.3_x86_64'
+make[1]: Leaving directory '/home/jjermsta/SimulationFramework/jeod'
